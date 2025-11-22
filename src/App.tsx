@@ -338,14 +338,14 @@ export default function App() {
 
     if (result === 'remembered') {
       newStage = note.stage + 1;
-      const intervalDays = intervals[newStage] !== undefined 
-        ? intervals[newStage] 
-        : (intervals[intervals.length - 1] * 2); 
-      
+      const intervalDays = intervals[newStage] !== undefined
+        ? intervals[newStage]
+        : (intervals[intervals.length - 1] * 2);
+
       nextDate = Date.now() + (intervalDays * 24 * 60 * 60 * 1000);
     } else {
-      newStage = Math.max(0, note.stage - 1); 
-      if (note.stage <= 1) newStage = 0; 
+      newStage = Math.max(0, note.stage - 1);
+      if (note.stage <= 1) newStage = 0;
       nextDate = Date.now() + (10 * 60 * 1000);
     }
 
@@ -357,9 +357,13 @@ export default function App() {
     };
 
     await saveNoteToDB(updatedNote);
-    
-    if (currentReviewIndex < dueNotes.length - 1) {
-      setCurrentReviewIndex(prev => prev + 1);
+
+    // 检查是否还有待复习的笔记
+    const remainingDueNotes = dueNotes.filter(n => n.id !== note.id);
+
+    if (remainingDueNotes.length > 0) {
+      // 还有待复习的笔记，继续复习
+      setCurrentReviewIndex(prev => Math.min(prev, remainingDueNotes.length - 1));
     } else {
       showToast('复习完成！太棒了！');
       setView('dashboard');
@@ -652,7 +656,9 @@ export default function App() {
 
   const ReviewSession = () => {
     const [showAnswer, setShowAnswer] = useState(false);
-    const note = dueNotes[currentReviewIndex];
+    // 过滤掉已经复习过的笔记
+    const availableDueNotes = dueNotes.filter(note => note.nextReviewDate <= Date.now());
+    const note = availableDueNotes[currentReviewIndex];
 
     if (!note) return <div className="p-10 text-center">加载中...</div>;
 
@@ -666,8 +672,8 @@ export default function App() {
       <div className="h-full flex flex-col bg-gray-50">
         <div className="p-4 flex justify-between items-center text-gray-500">
           <button onClick={() => setView('dashboard')}><X className="w-6 h-6" /></button>
-          <span className="font-mono">{currentReviewIndex + 1} / {dueNotes.length}</span>
-          <div className="w-6"></div> 
+          <span className="font-mono">{currentReviewIndex + 1} / {availableDueNotes.length}</span>
+          <div className="w-6"></div>
         </div>
 
         <div className="flex-1 p-4 flex flex-col justify-center max-w-md mx-auto w-full">
