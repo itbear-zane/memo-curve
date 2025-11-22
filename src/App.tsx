@@ -531,13 +531,16 @@ export default function App() {
     const [isProcessingImg, setIsProcessingImg] = useState(false);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
+      if (e.target.files && e.target.files.length > 0) {
         setIsProcessingImg(true);
         try {
-            const file = e.target.files[0];
-            // Compress image before storage
-            const compressedBase64 = await compressImage(file);
-            setImages(prev => [...prev, compressedBase64]);
+            const files = Array.from(e.target.files);
+            // Process all selected files
+            for (const file of files) {
+              // Compress image before storage
+              const compressedBase64 = await compressImage(file);
+              setImages(prev => [...prev, compressedBase64]);
+            }
         } catch (e) {
             showToast('图片处理失败', 'error');
         } finally {
@@ -631,11 +634,12 @@ export default function App() {
               >
                 {isProcessingImg ? <RotateCw className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
               </button>
-              <input 
+              <input
                 ref={fileInputRef}
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
                 onChange={handleImageUpload}
               />
             </div>
@@ -933,13 +937,16 @@ export default function App() {
       const [isProcessingImg, setIsProcessingImg] = useState(false);
 
       const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files && e.target.files.length > 0) {
           setIsProcessingImg(true);
           try {
-              const file = e.target.files[0];
-              // Compress image before storage
-              const compressedBase64 = await compressImage(file);
-              setImages(prev => [...prev, compressedBase64]);
+              const files = Array.from(e.target.files);
+              // Process all selected files
+              for (const file of files) {
+                // Compress image before storage
+                const compressedBase64 = await compressImage(file);
+                setImages(prev => [...prev, compressedBase64]);
+              }
           } catch (e) {
               showToast('图片处理失败', 'error');
           } finally {
@@ -1008,6 +1015,7 @@ export default function App() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={handleImageUpload}
                 />
