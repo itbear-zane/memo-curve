@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
             vendor: ['react', 'react-dom'],
             ui: ['lucide-react']
           } : undefined
-        }
+        } as any
       }
     },
     server: {
