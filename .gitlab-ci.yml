@@ -1,0 +1,16 @@
+# GitLab CI/CD 配置文件
+# 用于自动部署到 GitLab Pages
+
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  script:
+    - echo Deploying to GitLab Pages...
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+
