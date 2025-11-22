@@ -924,7 +924,7 @@ export default function App() {
       const [reschedule, setReschedule] = useState(false);
 
       const save = async () => {
-        let updatedNote = { ...note, title, content, curveId };
+        const updatedNote = { ...note, title, content, curveId };
         
         if (reschedule && curveId !== note.curveId) {
           const newCurve = settings.curveProfiles.find(c => c.id === curveId);
