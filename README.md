@@ -1,73 +1,123 @@
-# React + TypeScript + Vite
+# MemoCurve
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个基于 React + TypeScript + Vite 构建的艾宾浩斯记忆曲线应用，帮助你科学高效地记忆和管理知识点。
 
-Currently, two official plugins are available:
+## 🌟 特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **艾宾浩斯记忆曲线**：基于科学的遗忘曲线理论，自动安排复习计划
+- **多平台支持**：支持 GitHub Pages 和 Gitee Pages 双平台部署
+- **分类管理**：灵活的分类系统，支持不同学科的知识点管理
+- **图片支持**：支持上传和压缩图片，制作图文并茂的学习笔记
+- **本地存储**：使用 IndexedDB 大容量本地存储，数据安全可靠
+- **响应式设计**：完美适配手机端和桌面端
+- **PWA 支持**：可安装为桌面应用，离线可用
 
-## React Compiler
+## 🚀 快速开始
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 环境要求
 
-## Expanding the ESLint configuration
+- Node.js 18+
+- npm 或 yarn
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 安装依赖
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 开发模式
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### 构建部署
+
+```bash
+# 部署到 GitHub Pages
+npm run deploy
+
+# 部署到 Gitee Pages
+npm run deploy:gitee
+
+# 同时部署到两个平台
+npm run deploy:all
+```
+
+## 📱 在线体验
+
+- **GitHub Pages**: [https://itbear-zane.github.io/memo-curve](https://itbear-zane.github.io/memo-curve)
+- **Gitee Pages**: [https://jxgitee.gitee.io/memo-curve](https://jxgitee.gitee.io/memo-curve)
+
+## 🛠️ 技术栈
+
+- **前端框架**：React 19 + TypeScript
+- **构建工具**：Vite
+- **UI 组件**：Tailwind CSS
+- **图标库**：Lucide React
+- **数据存储**：IndexedDB
+- **部署平台**：GitHub Pages + Gitee Pages
+
+## 📖 使用说明
+
+### 1. 创建笔记
+- 点击底部的 "+" 按钮
+- 选择分类和复习策略
+- 输入标题和内容
+- 可选择添加图片
+
+### 2. 复习功能
+- 系统会根据艾宾浩斯曲线自动计算复习时间
+- 点击"开始复习"进入复习模式
+- 根据记忆情况选择"记得"或"忘记了"
+
+### 3. 分类管理
+- 在分类管理页面可以添加、删除分类
+- 每个分类有独立的颜色标识
+- 支持查看分类下的所有笔记
+
+### 4. 个性化设置
+- 可以自定义复习曲线间隔
+- 开启/关闭复习通知
+- 导出/备份数据
+
+## 🔧 开发
+
+### 项目结构
+
+```
+memo-curve/
+├── src/
+│   ├── App.tsx          # 主应用组件
+│   ├── index.css        # 全局样式
+│   └── ...             # 其他组件和文件
+├── scripts/            # 部署脚本
+│   ├── deploy-gitee.js # Gitee Pages 部署脚本
+│   └── deploy-all.js   # 双平台部署脚本
+├── dist/               # 构建输出目录
+└── package.json        # 项目配置
+```
+
+### 可用脚本
+
+```bash
+npm run dev          # 启动开发服务器
+npm run build        # 构建生产版本
+npm run preview      # 预览构建结果
+npm run lint         # 代码检查
+npm run deploy       # 部署到 GitHub Pages
+npm run deploy:gitee # 部署到 Gitee Pages
+npm run deploy:all   # 同时部署到两个平台
+```
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License
+
+---
+
+Made with ❤️ using React + TypeScript + Vite
