@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  BookOpen, 
-  Plus, 
-  Settings, 
-  RotateCw, 
-  X, 
-  Trash2, 
-  BarChart, 
+import {
+  BookOpen,
+  Plus,
+  Settings,
+  RotateCw,
+  X,
+  Trash2,
+  BarChart,
   ArrowLeft,
   TrendingUp,
   Save,
   Edit3,
   Clock,
-  Database,
   HardDrive,
   Download,
   Upload
@@ -146,8 +145,8 @@ const DEFAULT_CURVES: CurveProfile[] = [
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat_1', name: '英语单词', color: 'bg-blue-100 text-blue-800' },
-  { id: 'cat_2', name: '编程知识', color: 'bg-purple-100 text-purple-800' },
-  { id: 'cat_3', name: '日常琐事', color: 'bg-green-100 text-green-800' },
+  { id: 'cat_2', name: '数学', color: 'bg-purple-100 text-purple-800' },
+  { id: 'cat_3', name: '化学', color: 'bg-green-100 text-green-800' },
 ];
 
 // --- Helper Functions ---
@@ -276,15 +275,7 @@ export default function App() {
       setNotes(prev => prev.filter(n => n.id !== id));
   };
 
-  const saveCategoriesToDB = async (cats: Category[]) => {
-      // Re-write all or put individual? Categories are few, re-writing/looping is fine
-      // Clear store first to handle deletions or just delete specific?
-      // For simplicity: we just put, deletion needs explicit handling if we want perfect sync
-      // Let's implement explicit add/delete helpers for UI
-      setCategories(cats); // Optimistic update
-      // Logic for DB sync usually handled in the specific add/delete function
-  };
-
+  
   const saveSettingsToDB = async (newSettings: AppSettings) => {
       setSettings(newSettings);
       await dbHelper.put(STORE_SETTINGS, newSettings, 'config');
