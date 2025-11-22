@@ -37,17 +37,14 @@ npm run dev
 # 部署到 GitHub Pages
 npm run deploy
 
-# 部署到 Gitee Pages
-npm run deploy:gitee
-
-# 同时部署到两个平台
-npm run deploy:all
+# 部署到 GitLab Pages
+npm run deploy:gitlab
 ```
 
 ## 📱 在线体验
 
 - **GitHub Pages**: [https://itbear-zane.github.io/memo-curve](https://itbear-zane.github.io/memo-curve)
-- **Gitee Pages**: [https://jxgitee.gitee.io/memo-curve](https://jxgitee.gitee.io/memo-curve)
+- **GitLab Pages**: [https://itbear-zane.gitlab.io/memo-curve](https://itbear-zane.gitlab.io/memo-curve)
 
 ## 🛠️ 技术栈
 
@@ -56,7 +53,7 @@ npm run deploy:all
 - **UI 组件**：Tailwind CSS
 - **图标库**：Lucide React
 - **数据存储**：IndexedDB
-- **部署平台**：GitHub Pages + Gitee Pages
+- **部署平台**：GitHub Pages + GitLab Pages
 
 ## 📖 使用说明
 
@@ -92,8 +89,7 @@ memo-curve/
 │   ├── index.css        # 全局样式
 │   └── ...             # 其他组件和文件
 ├── scripts/            # 部署脚本
-│   ├── deploy-gitee.js # Gitee Pages 部署脚本
-│   └── deploy-all.js   # 双平台部署脚本
+│   └── deploy-gitlab.js # GitLab Pages 部署脚本
 ├── dist/               # 构建输出目录
 └── package.json        # 项目配置
 ```
@@ -106,8 +102,7 @@ npm run build        # 构建生产版本
 npm run preview      # 预览构建结果
 npm run lint         # 代码检查
 npm run deploy       # 部署到 GitHub Pages
-npm run deploy:gitee # 部署到 Gitee Pages
-npm run deploy:all   # 同时部署到两个平台
+npm run deploy:gitlab # 部署到 GitLab Pages
 ```
 
 ## 🤝 贡献
