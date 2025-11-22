@@ -928,15 +928,34 @@ export default function App() {
       const [content, setContent] = useState(note.content);
       const [curveId, setCurveId] = useState(note.curveId);
       const [reschedule, setReschedule] = useState(false);
+      const [images, setImages] = useState<string[]>(note.images); // Base64 strings
+      const fileInputRef = useRef<HTMLInputElement>(null);
+      const [isProcessingImg, setIsProcessingImg] = useState(false);
+
+      const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+          setIsProcessingImg(true);
+          try {
+              const file = e.target.files[0];
+              // Compress image before storage
+              const compressedBase64 = await compressImage(file);
+              setImages(prev => [...prev, compressedBase64]);
+          } catch (e) {
+              showToast('图片处理失败', 'error');
+          } finally {
+              setIsProcessingImg(false);
+          }
+        }
+      };
 
       const save = async () => {
-        const updatedNote = { ...note, title, content, curveId };
-        
+        const updatedNote = { ...note, title, content, curveId, images };
+
         if (reschedule && curveId !== note.curveId) {
           const newCurve = settings.curveProfiles.find(c => c.id === curveId);
           if (newCurve) {
              updatedNote.nextReviewDate = Date.now();
-             updatedNote.stage = Math.max(0, updatedNote.stage - 1); 
+             updatedNote.stage = Math.max(0, updatedNote.stage - 1);
           }
         }
 
@@ -962,12 +981,45 @@ export default function App() {
               <label className="block text-sm text-gray-500 mb-1">内容</label>
               <textarea value={content} onChange={e => setContent(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl h-40 resize-none" />
             </div>
+
+            {/* Image Management Section */}
+            <div>
+              <label className="block text-sm text-gray-500 mb-2">图片笔记</label>
+              <div className="flex flex-wrap gap-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border">
+                    <img src={img} className="w-full h-full object-cover" alt="note image" />
+                    <button
+                      onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                      className="absolute top-0 right-0 bg-black/50 text-white p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessingImg}
+                  className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-indigo-500 hover:border-indigo-500 transition disabled:opacity-50"
+                >
+                  {isProcessingImg ? <RotateCw className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
+            </div>
+
             <div className="bg-indigo-50 p-4 rounded-xl">
                <label className="block text-sm text-indigo-800 mb-2 font-bold flex items-center gap-2">
                  <TrendingUp className="w-4 h-4" /> 复习策略 (遗忘曲线)
                </label>
-               <select 
-                  value={curveId} 
+               <select
+                  value={curveId}
                   onChange={e => setCurveId(e.target.value)}
                   className="w-full p-2 bg-white rounded-lg border border-indigo-100 mb-2"
                 >
@@ -975,11 +1027,11 @@ export default function App() {
                </select>
                {curveId !== note.curveId && (
                  <div className="flex items-center gap-2 text-xs text-indigo-600 mt-2">
-                   <input 
-                    type="checkbox" 
-                    id="reschedule" 
-                    checked={reschedule} 
-                    onChange={e => setReschedule(e.target.checked)} 
+                   <input
+                    type="checkbox"
+                    id="reschedule"
+                    checked={reschedule}
+                    onChange={e => setReschedule(e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500"
                    />
                    <label htmlFor="reschedule">立即重新安排复习 (设为今天到期)</label>
@@ -1030,8 +1082,8 @@ export default function App() {
           <div className="p-4 space-y-3">
             {catNotes.length === 0 && <div className="text-center text-gray-400 mt-10">该分类下暂无笔记</div>}
             {catNotes.map(n => (
-              <div 
-                key={n.id} 
+              <div
+                key={n.id}
                 onClick={() => setEditingNote(n)}
                 className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-start cursor-pointer hover:bg-gray-50 transition active:scale-[0.98]"
               >
@@ -1040,14 +1092,31 @@ export default function App() {
                     {n.title}
                     <Edit3 className="w-3 h-3 text-gray-300" />
                   </h3>
-                  <p className="text-sm text-gray-500 truncate mt-1">{n.content || '图片笔记'}</p>
+                  <p className="text-sm text-gray-500 truncate mt-1">{n.content || (n.images.length > 0 ? '图片笔记' : '')}</p>
+
+                  {/* Show image thumbnails if note has images */}
+                  {n.images.length > 0 && (
+                    <div className="flex gap-1 mt-2">
+                      {n.images.slice(0, 3).map((img, idx) => (
+                        <div key={idx} className="w-8 h-8 rounded overflow-hidden border">
+                          <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
+                        </div>
+                      ))}
+                      {n.images.length > 3 && (
+                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
+                          +{n.images.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mt-2 flex items-center gap-2 text-xs">
                     <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">Lv.{n.stage}</span>
                     <span className="text-gray-400">下次: {getRelativeTime(n.nextReviewDate)}</span>
                   </div>
                 </div>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }} 
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }}
                   className="text-gray-300 hover:text-red-500 p-2"
                 >
                   <Trash2 className="w-4 h-4" />
