@@ -36,6 +36,7 @@ try {
 
   // 清理旧的 public 目录
   if (existsSync('public')) {
+    console.log('🗑️  清理旧的 public 目录...');
     execSync('rm -rf public', { stdio: 'ignore' });
   }
 
