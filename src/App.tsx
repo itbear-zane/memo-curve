@@ -633,8 +633,7 @@ export default function App() {
 
   // --- 分析详情模态框组件 ---
   const AnalyticsOverview = () => {
-    const [activeTab, setActiveTab] = useState<'category' | 'trend' | 'completion'>('category');
-    const [showTodayAdded, setShowTodayAdded] = useState(false);
+    const [activeTab, setActiveTab] = useState<'category' | 'today' | 'trend' | 'completion'>('category');
 
     const categoryData = getCategoryDistribution();
     const todayAddedData = getTodayAddedCategoryDistribution();
@@ -667,6 +666,17 @@ export default function App() {
             >
               <PieChartIcon className="w-4 h-4 inline mr-1" />
               分类分布
+            </button>
+            <button
+              onClick={() => setActiveTab('today')}
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'today'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Calendar className="w-4 h-4 inline mr-1" />
+              今日新增
             </button>
             <button
               onClick={() => setActiveTab('trend')}
@@ -739,64 +749,61 @@ export default function App() {
                   </div>
                 )}
 
-                {/* 今日新增分布 */}
-                {todayAddedData.length > 0 && (
-                  <div className="space-y-6 border-t pt-8">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-green-600" />
-                        今日新增笔记分布
-                      </h4>
-                      <button
-                        onClick={() => setShowTodayAdded(!showTodayAdded)}
-                        className="text-sm text-indigo-600 flex items-center gap-1"
-                      >
-                        {showTodayAdded ? '隐藏' : '展开'}
-                      </button>
-                    </div>
-                    {showTodayAdded && (
-                      <>
-                        <div className="h-64">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={todayAddedData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                                outerRadius={80}
-                                fill="#10b981"
-                                dataKey="value"
-                              >
-                                {todayAddedData.map((_, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          {todayAddedData.map((item, index) => (
-                            <div key={item.name} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                              <div
-                                className="w-4 h-4 rounded-full"
-                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                              ></div>
-                              <span className="font-medium">{item.name}</span>
-                              <span className="ml-auto text-green-600 font-semibold">{item.value} 条</span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {categoryData.length === 0 && todayAddedData.length === 0 && (
+                {categoryData.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
                     暂无分类数据
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'today' && (
+              <div className="space-y-6">
+                {todayAddedData.length > 0 ? (
+                  <>
+                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-green-600" />
+                      今日新增笔记分类分布
+                    </h4>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={todayAddedData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            outerRadius={100}
+                            fill="#10b981"
+                            dataKey="value"
+                          >
+                            {todayAddedData.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {todayAddedData.map((item, index) => (
+                        <div key={item.name} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                          <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          ></div>
+                          <span className="font-medium">{item.name}</span>
+                          <span className="ml-auto text-green-600 font-semibold">{item.value} 条</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p>今日暂无新增笔记</p>
+                    <p className="text-sm text-gray-400 mt-2">开始添加新笔记来查看分布情况</p>
                   </div>
                 )}
               </div>
@@ -981,30 +988,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Today's Added Notes Distribution */}
-          {getTodayAddedCategoryDistribution().length > 0 && (
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
-              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-green-500" />
-                今日新增分布
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {getTodayAddedCategoryDistribution().map((item) => {
-                  const category = categories.find(cat => cat.name === item.name);
-                  return (
-                    <div key={item.name} className={`${category?.color || 'bg-gray-100 text-gray-800'} p-3 rounded-lg`}>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-sm">{item.name}</span>
-                        <span className="text-lg font-bold">{item.value}</span>
-                      </div>
-                      <div className="text-xs opacity-70 mt-1">条笔记</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+  
           {/* Overall Stats */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <h3 className="font-semibold text-gray-700 mb-3">总体统计</h3>
