@@ -201,18 +201,19 @@ export default function App() {
     curveProfiles: DEFAULT_CURVES,
     enableNotifications: false,
   });
-  
+
   const [view, setView] = useState<'dashboard' | 'add' | 'review' | 'settings' | 'category'>('dashboard');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
 
   // --- Initialization & Migration Logic ---
   useEffect(() => {
     const init = async () => {
       try {
         await dbHelper.init();
-        
+
         // 1. Check IndexedDB first
         const dbNotes = await dbHelper.getAll<Note>(STORE_NOTES);
         const dbCats = await dbHelper.getAll<Category>(STORE_CATS);
@@ -230,13 +231,13 @@ export default function App() {
             for (const n of parsedNotes) await dbHelper.put(STORE_NOTES, n);
             for (const c of parsedCats) await dbHelper.put(STORE_CATS, c);
             if (parsedSettings) await dbHelper.put(STORE_SETTINGS, parsedSettings, 'config');
-            
+
             // Load from LS data
             setNotes(parsedNotes);
             if (parsedCats.length) setCategories(parsedCats);
             if (parsedSettings.curveProfiles) setSettings(parsedSettings);
-            
-            // Optional: Clear LS after successful migration? 
+
+            // Optional: Clear LS after successful migration?
             // localStorage.removeItem('memo_notes'); // Keeping it for safety for now or user manual clear
             showToast("数据已升级到大容量存储");
         } else {
@@ -314,6 +315,8 @@ export default function App() {
     };
     await saveNoteToDB(newNote);
     showToast('笔记已保存');
+    // Clear saved form state after successful save
+    sessionStorage.removeItem('addNoteFormState');
     setView('dashboard');
   };
 
@@ -522,13 +525,35 @@ export default function App() {
   };
 
   const AddNote = () => {
-    const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
-    const [selectedCat, setSelectedCat] = useState(categories[0]?.id || '');
-    const [selectedCurve, setSelectedCurve] = useState(settings.curveProfiles[0]?.id || '');
-    const [images, setImages] = useState<string[]>([]); // Base64 strings
+    // Load form state from sessionStorage if available
+    const savedFormState = sessionStorage.getItem('addNoteFormState');
+    const initialFormState = savedFormState ? JSON.parse(savedFormState) : {
+      title: '',
+      content: '',
+      selectedCat: categories[0]?.id || '',
+      selectedCurve: settings.curveProfiles[0]?.id || '',
+      images: []
+    };
+
+    const [title, setTitle] = useState(initialFormState.title);
+    const [content, setContent] = useState(initialFormState.content);
+    const [selectedCat, setSelectedCat] = useState(initialFormState.selectedCat);
+    const [selectedCurve, setSelectedCurve] = useState(initialFormState.selectedCurve);
+    const [images, setImages] = useState<string[]>(initialFormState.images); // Base64 strings
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isProcessingImg, setIsProcessingImg] = useState(false);
+
+    // Save form state to sessionStorage whenever it changes
+    useEffect(() => {
+      const formState = {
+        title,
+        content,
+        selectedCat,
+        selectedCurve,
+        images
+      };
+      sessionStorage.setItem('addNoteFormState', JSON.stringify(formState));
+    }, [title, content, selectedCat, selectedCurve, images]);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
@@ -541,7 +566,7 @@ export default function App() {
               const compressedBase64 = await compressImage(file);
               setImages(prev => [...prev, compressedBase64]);
             }
-        } catch (e) {
+        } catch {
             showToast('图片处理失败', 'error');
         } finally {
             setIsProcessingImg(false);
@@ -550,13 +575,16 @@ export default function App() {
     };
 
     const submit = () => {
-      if (!title.trim()) { showToast('请输入标题', 'error'); return; }
-      handleAddNote({ 
-        title, 
-        content, 
-        categoryId: selectedCat, 
+      if (!title.trim()) {
+        showToast('请输入标题', 'error');
+        return; // Just show error, don't clear form state
+      }
+      handleAddNote({
+        title,
+        content,
+        categoryId: selectedCat,
         curveId: selectedCurve,
-        images 
+        images
       });
     };
 
@@ -571,8 +599,8 @@ export default function App() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-500 mb-1">分类</label>
-              <select 
-                value={selectedCat} 
+              <select
+                value={selectedCat}
                 onChange={e => setSelectedCat(e.target.value)}
                 className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500"
               >
@@ -583,8 +611,8 @@ export default function App() {
               <label className="block text-sm text-gray-500 mb-1 flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" /> 复习策略
               </label>
-              <select 
-                value={selectedCurve} 
+              <select
+                value={selectedCurve}
                 onChange={e => setSelectedCurve(e.target.value)}
                 className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500"
               >
@@ -595,7 +623,7 @@ export default function App() {
 
           <div>
             <label className="block text-sm text-gray-500 mb-1">标题</label>
-            <input 
+            <input
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="核心概念 / 单词"
@@ -605,7 +633,7 @@ export default function App() {
 
           <div>
             <label className="block text-sm text-gray-500 mb-1">内容详情</label>
-            <textarea 
+            <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
               placeholder="详细解释、例句或备注..."
@@ -619,7 +647,7 @@ export default function App() {
               {images.map((img, idx) => (
                 <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border">
                   <img src={img} className="w-full h-full object-cover" />
-                  <button 
+                  <button
                     onClick={() => setImages(images.filter((_, i) => i !== idx))}
                     className="absolute top-0 right-0 bg-black/50 text-white p-0.5"
                   >
@@ -627,7 +655,7 @@ export default function App() {
                   </button>
                 </div>
               ))}
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessingImg}
                 className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-indigo-500 hover:border-indigo-500 transition disabled:opacity-50"
