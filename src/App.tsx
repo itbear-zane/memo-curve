@@ -695,6 +695,10 @@ export default function App() {
 
   const ReviewSession = () => {
     const [showAnswer, setShowAnswer] = useState(false);
+    const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+    const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+    const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+
     // 过滤掉已经复习过的笔记
     const availableDueNotes = dueNotes.filter(note => note.nextReviewDate <= Date.now());
     const note = availableDueNotes[currentReviewIndex];
@@ -712,6 +716,56 @@ export default function App() {
 
     const nextInterval = nextCumulativeDays - currentCumulativeDays;
 
+    // Swipe gesture handling for navigation
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e: React.TouchEvent) => {
+      setTouchEnd(null);
+      setTouchStart({
+        x: e.targetTouches[0].clientX,
+        y: e.targetTouches[0].clientY,
+      });
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+      setTouchEnd({
+        x: e.targetTouches[0].clientX,
+        y: e.targetTouches[0].clientY,
+      });
+    };
+
+    const onTouchEnd = () => {
+      if (!touchStart || !touchEnd) return;
+
+      const distanceX = touchStart.x - touchEnd.x;
+      const distanceY = touchStart.y - touchEnd.y;
+      const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
+
+      if (isHorizontalSwipe && Math.abs(distanceX) > minSwipeDistance) {
+        if (distanceX > 0) {
+          // Swipe left - next note
+          if (currentReviewIndex < availableDueNotes.length - 1) {
+            setSlideDirection('left');
+            setTimeout(() => {
+              setCurrentReviewIndex(prev => prev + 1);
+              setShowAnswer(false);
+              setSlideDirection(null);
+            }, 300);
+          }
+        } else {
+          // Swipe right - previous note
+          if (currentReviewIndex > 0) {
+            setSlideDirection('right');
+            setTimeout(() => {
+              setCurrentReviewIndex(prev => prev - 1);
+              setShowAnswer(false);
+              setSlideDirection(null);
+            }, 300);
+          }
+        }
+      }
+    };
+
     return (
       <div className="h-full flex flex-col bg-gray-50">
         <div className="p-4 flex justify-between items-center text-gray-500">
@@ -721,7 +775,21 @@ export default function App() {
         </div>
 
         <div className="flex-1 p-4 flex flex-col justify-center max-w-md mx-auto w-full">
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative">
+          <div
+            className={`bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative cursor-pointer transition-transform duration-300 ${
+              slideDirection === 'left' ? 'translate-x-full opacity-0' :
+              slideDirection === 'right' ? '-translate-x-full opacity-0' :
+              'translate-x-0 opacity-100'
+            }`}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onClick={() => {
+              if (!showAnswer) {
+                setShowAnswer(true);
+              }
+            }}
+          >
             <div className="p-8 flex-1 flex flex-col items-center justify-center text-center">
               <div className="flex gap-2 mb-4">
                 <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs text-gray-500">
@@ -731,11 +799,17 @@ export default function App() {
                   {curve.name} Lv.{note.stage}
                 </span>
               </div>
-              
+
               <h2 className="text-2xl font-bold text-gray-800 mb-4">{note.title}</h2>
-              
+
               {!showAnswer && (
-                <p className="text-gray-400 text-sm animate-pulse mt-10">点击下方显示答案</p>
+                <div className="space-y-4">
+                  <p className="text-gray-400 text-sm animate-pulse">点击卡片显示答案</p>
+                  <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+                    {currentReviewIndex > 0 && <span>← 滑动查看上一个</span>}
+                    {currentReviewIndex < availableDueNotes.length - 1 && <span>滑动查看下一个 →</span>}
+                  </div>
+                </div>
               )}
 
               {showAnswer && (
@@ -748,6 +822,10 @@ export default function App() {
                       ))}
                     </div>
                   )}
+                  <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-400">
+                    {currentReviewIndex > 0 && <span>← 滑动查看上一个</span>}
+                    {currentReviewIndex < availableDueNotes.length - 1 && <span>滑动查看下一个 →</span>}
+                  </div>
                 </div>
               )}
             </div>
@@ -756,7 +834,7 @@ export default function App() {
 
         <div className="p-6 pb-10">
           {!showAnswer ? (
-            <button 
+            <button
               onClick={() => setShowAnswer(true)}
               className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-indigo-700 transition"
             >
@@ -764,14 +842,14 @@ export default function App() {
             </button>
           ) : (
             <div className="flex gap-4">
-              <button 
+              <button
                 onClick={() => { handleReview(note, 'forgot'); setShowAnswer(false); }}
                 className="flex-1 bg-red-100 text-red-600 py-4 rounded-2xl font-bold hover:bg-red-200 transition flex flex-col items-center"
               >
                 <span className="text-lg">忘记了</span>
                 <span className="text-xs font-normal opacity-70">重置进度</span>
               </button>
-              <button 
+              <button
                 onClick={() => { handleReview(note, 'remembered'); setShowAnswer(false); }}
                 className="flex-1 bg-green-100 text-green-600 py-4 rounded-2xl font-bold hover:bg-green-200 transition flex flex-col items-center"
               >
