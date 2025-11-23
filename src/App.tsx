@@ -17,6 +17,7 @@ import {
   Upload,
   Eye
 } from 'lucide-react';
+import { isBefore, endOfDay, isToday } from 'date-fns';
 
 // --- 1. IndexedDB Utility Layer (No external deps) ---
 
@@ -158,10 +159,32 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const getRelativeTime = (timestamp: number) => {
   const diff = timestamp - Date.now();
   const diffDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
-  if (diff < 0) return '已过期';
+
+  // 使用新的过期逻辑：如果笔记的复习时间在今天晚上12点之前，显示"今天"
+  if (isToday(timestamp)) {
+    return '今天';
+  }
+
+  // 如果笔记的复习时间已经过了当天晚上12点，显示"已过期"
+  const reviewDayEnd = endOfDay(timestamp);
+  if (isBefore(reviewDayEnd, Date.now())) {
+    return '已过期';
+  }
+
   if (diffDays <= 0) return '今天';
   if (diffDays === 1) return '明天';
   return `${diffDays}天后`;
+};
+
+// Check if a note is overdue (after end of the review day)
+const isNoteOverdue = (note: Note): boolean => {
+  const reviewDayEnd = endOfDay(note.nextReviewDate);
+  return isBefore(reviewDayEnd, Date.now());
+};
+
+// Check if a note is due (overdue after end of review day)
+const isNoteDue = (note: Note): boolean => {
+  return isNoteOverdue(note);
 };
 
 // Compress image to avoid massive blobs if user uploads 4k photos
@@ -287,7 +310,7 @@ export default function App() {
   // Notification Check
   useEffect(() => {
     if (settings.enableNotifications && !loading) {
-      const dueCount = notes.filter(n => n.nextReviewDate <= Date.now()).length;
+      const dueCount = notes.filter(n => isNoteDue(n)).length;
       if (dueCount > 0 && Notification.permission === 'granted') {
         const timer = setTimeout(() => {
            new Notification('复习提醒', { body: `你有 ${dueCount} 条笔记需要现在复习！` });
@@ -304,14 +327,19 @@ export default function App() {
 
   // --- Logic ---
 
-  const dueNotes = notes.filter(n => n.nextReviewDate <= Date.now()).sort((a, b) => a.nextReviewDate - b.nextReviewDate);
+  const dueNotes = notes.filter(n => isNoteDue(n)).sort((a, b) => a.nextReviewDate - b.nextReviewDate);
 
   const handleAddNote = async (noteData: Omit<Note, 'id' | 'createdAt' | 'nextReviewDate' | 'stage' | 'reviewHistory'>) => {
+    // Calculate first review date based on the selected curve's first interval
+    const curve = settings.curveProfiles.find(c => c.id === noteData.curveId) || settings.curveProfiles[0];
+    const firstIntervalDays = curve.intervals[0] || 1; // Default to 1 day if no intervals
+    const firstReviewDate = Date.now() + (firstIntervalDays * 24 * 60 * 60 * 1000);
+
     const newNote: Note = {
       ...noteData,
       id: generateId(),
       createdAt: Date.now(),
-      nextReviewDate: Date.now(),
+      nextReviewDate: firstReviewDate,
       stage: 0,
       reviewHistory: []
     };
@@ -701,7 +729,7 @@ export default function App() {
     const [isAnimating, setIsAnimating] = useState(false);
 
     // 过滤掉已经复习过的笔记
-    const availableDueNotes = dueNotes.filter(note => note.nextReviewDate <= Date.now());
+    const availableDueNotes = dueNotes.filter(note => isNoteDue(note));
     const note = availableDueNotes[currentReviewIndex];
 
     if (!note) return <div className="p-10 text-center">加载中...</div>;
@@ -862,7 +890,7 @@ export default function App() {
                   {categoryName}
                 </span>
                 <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-xs text-indigo-600">
-                  {curve.name} Lv.{note.stage}
+                  {curve.name} {note.stage === 0 ? '今日新添加' : `第${note.stage}次复习`}
                 </span>
               </div>
 
@@ -1689,7 +1717,7 @@ export default function App() {
                   )}
 
                   <div className="mt-2 flex items-center gap-2 text-xs">
-                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">Lv.{n.stage}</span>
+                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">{n.stage === 0 ? '今日新添加' : `第${n.stage}次复习`}</span>
                     <span className="text-gray-400">下次: {getRelativeTime(n.nextReviewDate)}</span>
                   </div>
                 </div>
