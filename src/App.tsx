@@ -1129,7 +1129,7 @@ export default function App() {
 
           <div className="bg-indigo-700/50 p-4 rounded-2xl flex items-center justify-between backdrop-blur-sm">
             <div>
-              <p className="text-indigo-200 text-sm">待复习</p>
+              <p className="text-indigo-200 text-sm">今日待复习</p>
               <p className="text-3xl font-bold">{dueCount}</p>
             </div>
             <button
@@ -1232,7 +1232,7 @@ export default function App() {
                 </div>
                 <div className="text-center pt-3">
                   <div className="text-xl font-bold text-orange-600">{dueCount}</div>
-                  <div className="text-gray-600">待复习</div>
+                  <div className="text-gray-600">今日待复习</div>
                 </div>
               </div>
             </div>
