@@ -343,11 +343,16 @@ export default function App() {
 
     if (result === 'remembered') {
       newStage = note.stage + 1;
-      const intervalDays = intervals[newStage] !== undefined
+
+      // 计算实际间隔天数 = 下一次复习的累计天数 - 当前复习的累计天数
+      const currentCumulativeDays = note.stage < intervals.length ? intervals[note.stage] : intervals[intervals.length - 1];
+      const nextCumulativeDays = newStage < intervals.length
         ? intervals[newStage]
         : (intervals[intervals.length - 1] * 2);
 
-      nextDate = Date.now() + (intervalDays * 24 * 60 * 60 * 1000);
+      const actualIntervalDays = nextCumulativeDays - currentCumulativeDays;
+
+      nextDate = Date.now() + (actualIntervalDays * 24 * 60 * 60 * 1000);
     } else {
       newStage = Math.max(0, note.stage - 1);
       if (note.stage <= 1) newStage = 0;
@@ -698,9 +703,14 @@ export default function App() {
 
     const categoryName = categories.find(c => c.id === note.categoryId)?.name;
     const curve = settings.curveProfiles.find(c => c.id === note.curveId) || settings.curveProfiles[0];
-    const nextInterval = curve.intervals[note.stage + 1] !== undefined 
-      ? curve.intervals[note.stage + 1] 
+
+    // 计算实际间隔天数 = 下一次复习的累计天数 - 当前复习的累计天数
+    const currentCumulativeDays = note.stage < curve.intervals.length ? curve.intervals[note.stage] : curve.intervals[curve.intervals.length - 1];
+    const nextCumulativeDays = note.stage + 1 < curve.intervals.length
+      ? curve.intervals[note.stage + 1]
       : (curve.intervals[curve.intervals.length - 1] * 2);
+
+    const nextInterval = nextCumulativeDays - currentCumulativeDays;
 
     return (
       <div className="h-full flex flex-col bg-gray-50">
