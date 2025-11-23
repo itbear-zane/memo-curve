@@ -6,7 +6,6 @@ import {
   RotateCw,
   X,
   Trash2,
-  BarChart,
   ArrowLeft,
   TrendingUp,
   Save,
@@ -16,10 +15,18 @@ import {
   Download,
   Upload,
   Eye,
-  GripVertical
+  GripVertical,
+  Calendar,
+  Target,
+  PieChart as PieChartIcon,
+  TrendingUp as TrendingUpIcon
 } from 'lucide-react';
-import { isBefore, endOfDay, isToday } from 'date-fns';
+import { isBefore, endOfDay, isToday, startOfDay, subDays, format } from 'date-fns';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import {
+  LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 
 // --- 1. IndexedDB Utility Layer (No external deps) ---
 
@@ -150,7 +157,6 @@ const DEFAULT_CURVES: CurveProfile[] = [
 ];
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat_1', name: '英语单词', color: 'bg-blue-100 text-blue-800', sortOrder: 0 },
   { id: 'cat_chinese', name: '语文', color: 'bg-red-100 text-red-800', sortOrder: 1 },
   { id: 'cat_math', name: '数学', color: 'bg-sky-100 text-sky-800', sortOrder: 2 },
   { id: 'cat_english', name: '英语', color: 'bg-green-100 text-green-800', sortOrder: 3 },
@@ -238,6 +244,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
 
   // --- Initialization & Migration Logic ---
@@ -493,7 +500,382 @@ export default function App() {
       reader.readAsText(file);
   };
 
-  // --- Views ---
+  // --- 统计数据计算 ---
+
+  // 今日新增笔记数
+  const getTodayAddedNotes = () => {
+    const today = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    return notes.filter(note =>
+      note.createdAt >= today.getTime() && note.createdAt <= todayEnd.getTime()
+    ).length;
+  };
+
+  // 今日完成复习数
+  const getTodayCompletedReviews = () => {
+    const today = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    let completedCount = 0;
+
+    notes.forEach(note => {
+      note.reviewHistory.forEach(review => {
+        if (review.date >= today.getTime() && review.date <= todayEnd.getTime()) {
+          completedCount++;
+        }
+      });
+    });
+
+    return completedCount;
+  };
+
+  // 记忆准确率
+  const getMemoryAccuracy = () => {
+    let rememberedCount = 0;
+    let totalCount = 0;
+
+    notes.forEach(note => {
+      note.reviewHistory.forEach(review => {
+        if (review.action === 'remembered') {
+          rememberedCount++;
+        }
+        totalCount++;
+      });
+    });
+
+    return totalCount > 0 ? Math.round((rememberedCount / totalCount) * 100) : 100;
+  };
+
+  // 各分类笔记数量分布
+  const getCategoryDistribution = () => {
+    const distribution = categories.map(cat => ({
+      name: cat.name,
+      value: notes.filter(note => note.categoryId === cat.id).length,
+      color: cat.color
+    })).filter(item => item.value > 0);
+
+    return distribution;
+  };
+
+  // 今日新增笔记分类分布
+  const getTodayAddedCategoryDistribution = () => {
+    const today = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    const distribution = categories.map(cat => ({
+      name: cat.name,
+      value: notes.filter(note =>
+        note.categoryId === cat.id &&
+        note.createdAt >= today.getTime() &&
+        note.createdAt <= todayEnd.getTime()
+      ).length,
+      color: cat.color
+    })).filter(item => item.value > 0);
+
+    return distribution;
+  };
+
+  // 各分类复习完成率
+  const getCategoryCompletionRates = () => {
+    return categories.map(cat => {
+      const categoryNotes = notes.filter(note => note.categoryId === cat.id);
+      const totalNotes = categoryNotes.length;
+      const completedToday = categoryNotes.filter(note => {
+        return note.reviewHistory.some(review => {
+          const today = startOfDay(new Date());
+          const todayEnd = endOfDay(new Date());
+          return review.date >= today.getTime() && review.date <= todayEnd.getTime();
+        });
+      }).length;
+
+      // 计算今天应该复习的笔记数量（排除今天新添加且还没到复习时间的笔记）
+      const today = startOfDay(new Date());
+      const todayEnd = endOfDay(new Date());
+      const notesToReview = categoryNotes.filter(note => {
+        // 如果是今天新添加的笔记，且还没有任何复习记录，则不算入需要复习的数量
+        const isTodayNewNote = note.createdAt >= today.getTime() && note.createdAt <= todayEnd.getTime();
+        const hasNoReviewHistory = note.reviewHistory.length === 0;
+
+        return !isTodayNewNote || !hasNoReviewHistory;
+      }).length;
+
+      return {
+        name: cat.name,
+        total: totalNotes,
+        completed: completedToday,
+        needReview: notesToReview,
+        rate: notesToReview > 0 ? Math.round((completedToday / notesToReview) * 100) : 100,
+        isNewNoteOnly: notesToReview === 0 && totalNotes > 0
+      };
+    }).filter(item => item.total > 0);
+  };
+
+  // 每日学习笔记数量趋势（最近7天）
+  const getDailyLearningTrend = () => {
+    const trend = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dateStart = startOfDay(date);
+      const dateEnd = endOfDay(date);
+
+      const addedCount = notes.filter(note =>
+        note.createdAt >= dateStart.getTime() && note.createdAt <= dateEnd.getTime()
+      ).length;
+
+      trend.push({
+        date: format(date, 'MM/dd'),
+        fullDate: format(date, 'yyyy-MM-dd'),
+        added: addedCount
+      });
+    }
+
+    return trend;
+  };
+
+  // --- 分析详情模态框组件 ---
+  const AnalyticsOverview = () => {
+    const [activeTab, setActiveTab] = useState<'category' | 'trend' | 'completion'>('category');
+    const [showTodayAdded, setShowTodayAdded] = useState(false);
+
+    const categoryData = getCategoryDistribution();
+    const todayAddedData = getTodayAddedCategoryDistribution();
+    const trendData = getDailyLearningTrend();
+    const completionData = getCategoryCompletionRates();
+
+    // 为饼图准备颜色
+    const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+          {/* Header */}
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-bold text-lg">学习数据分析</h3>
+            <button onClick={() => setShowAnalytics(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('category')}
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'category'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <PieChartIcon className="w-4 h-4 inline mr-1" />
+              分类分布
+            </button>
+            <button
+              onClick={() => setActiveTab('trend')}
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'trend'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <TrendingUpIcon className="w-4 h-4 inline mr-1" />
+              学习趋势
+            </button>
+            <button
+              onClick={() => setActiveTab('completion')}
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'completion'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Target className="w-4 h-4 inline mr-1" />
+              完成率
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            {activeTab === 'category' && (
+              <div className="space-y-8">
+                {/* 总体分布 */}
+                {categoryData.length > 0 && (
+                  <div className="space-y-6">
+                    <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <PieChartIcon className="w-5 h-5" />
+                      各分类笔记数量分布
+                    </h4>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={categoryData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {categoryData.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {categoryData.map((item, index) => (
+                        <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          ></div>
+                          <span className="font-medium">{item.name}</span>
+                          <span className="ml-auto text-gray-600">{item.value} 条</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 今日新增分布 */}
+                {todayAddedData.length > 0 && (
+                  <div className="space-y-6 border-t pt-8">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-green-600" />
+                        今日新增笔记分布
+                      </h4>
+                      <button
+                        onClick={() => setShowTodayAdded(!showTodayAdded)}
+                        className="text-sm text-indigo-600 flex items-center gap-1"
+                      >
+                        {showTodayAdded ? '隐藏' : '展开'}
+                      </button>
+                    </div>
+                    {showTodayAdded && (
+                      <>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={todayAddedData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                outerRadius={80}
+                                fill="#10b981"
+                                dataKey="value"
+                              >
+                                {todayAddedData.map((_, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {todayAddedData.map((item, index) => (
+                            <div key={item.name} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                              <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              ></div>
+                              <span className="font-medium">{item.name}</span>
+                              <span className="ml-auto text-green-600 font-semibold">{item.value} 条</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {categoryData.length === 0 && todayAddedData.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    暂无分类数据
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'trend' && (
+              <div className="space-y-6">
+                <h4 className="font-semibold text-gray-800">最近7天学习笔记数量趋势</h4>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="added"
+                        stroke="#4f46e5"
+                        strokeWidth={2}
+                        name="新增笔记"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-7 gap-2 text-center">
+                  {trendData.map((day) => (
+                    <div key={day.fullDate} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="text-xs text-gray-500">{day.date}</div>
+                      <div className="text-lg font-bold text-indigo-600 mt-1">{day.added}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'completion' && completionData.length > 0 && (
+              <div className="space-y-6">
+                <h4 className="font-semibold text-gray-800">各分类今日复习完成率</h4>
+                <div className="space-y-4">
+                  {completionData.map((item) => (
+                    <div key={item.name} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{item.name}</span>
+                        <span className="text-sm text-gray-600">
+                          {item.isNewNoteOnly ? (
+                            <span className="text-green-600">今日新添加 ({item.total}条)</span>
+                          ) : (
+                            `${item.completed}/${item.needReview} (${item.rate}%)`
+                          )}
+                        </span>
+                      </div>
+                      {!item.isNewNoteOnly && (
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${item.rate}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+  
+            {(completionData.length === 0 && activeTab === 'completion') && (
+              <div className="text-center py-12 text-gray-500">
+                暂无复习数据
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+// --- Views ---
 
   if (loading) {
       return (
@@ -568,17 +950,57 @@ export default function App() {
           </div>
         </div>
 
-        {/* Recent Activity / Stats */}
+        {/* Enhanced Overview with Statistics */}
         <div className="px-4">
-          <h2 className="font-bold text-gray-700 mb-3">概览</h2>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 text-sm text-gray-600">
-            <div className="flex-1 text-center border-r border-gray-100">
-              <div className="text-xl font-bold text-gray-800">{notes.length}</div>
-              <div>总笔记</div>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="font-bold text-gray-700">概览</h2>
+            <button
+              onClick={() => setShowAnalytics(true)}
+              className="text-indigo-600 text-sm font-medium flex items-center gap-1"
+            >
+              <TrendingUp className="w-4 h-4" />
+              查看详情
+            </button>
+          </div>
+
+          {/* Today's Stats */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
+            <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-500" />
+              今日统计
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-indigo-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-indigo-600">{getTodayAddedNotes()}</div>
+                <div className="text-gray-600">新增笔记</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-green-600">{getTodayCompletedReviews()}</div>
+                <div className="text-gray-600">完成复习</div>
+              </div>
             </div>
-            <div className="flex-1 text-center">
-              <div className="text-xl font-bold text-gray-800">{notes.reduce((acc, n) => acc + n.stage, 0)}</div>
-              <div>累计记忆点</div>
+          </div>
+
+          {/* Overall Stats */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-gray-700 mb-3">总体统计</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="text-center border-r border-gray-100">
+                <div className="text-xl font-bold text-gray-800">{notes.length}</div>
+                <div className="text-gray-600">总笔记</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-800">{notes.reduce((acc, n) => acc + n.stage, 0)}</div>
+                <div className="text-gray-600">累计记忆点</div>
+              </div>
+              <div className="text-center border-r border-gray-100 pt-3">
+                <div className="text-xl font-bold text-purple-600">{getMemoryAccuracy()}%</div>
+                <div className="text-gray-600">记忆准确率</div>
+              </div>
+              <div className="text-center pt-3">
+                <div className="text-xl font-bold text-orange-600">{dueCount}</div>
+                <div className="text-gray-600">待复习</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1412,7 +1834,7 @@ export default function App() {
           <section className="bg-white p-4 rounded-xl shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <BarChart className="w-5 h-5 text-indigo-500" /> 遗忘曲线管理
+                <TrendingUp className="w-5 h-5 text-indigo-500" /> 遗忘曲线管理
               </h3>
               <button onClick={addCurve} className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold">+ 新建</button>
             </div>
@@ -2031,6 +2453,9 @@ export default function App() {
       {view === 'review' && <ReviewSession />}
       {view === 'settings' && <SettingsView />}
       {view === 'category' && <CategoryManager />}
+
+      {/* Analytics Overview Modal */}
+      {showAnalytics && <AnalyticsOverview />}
 
       {/* Show Nav bar only on main screens */}
       {(view === 'dashboard' || view === 'settings' || (view === 'category' && !activeCategory)) && <NavBar />}
