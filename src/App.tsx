@@ -148,8 +148,12 @@ const DEFAULT_CURVES: CurveProfile[] = [
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat_1', name: '英语单词', color: 'bg-blue-100 text-blue-800' },
-  { id: 'cat_2', name: '数学', color: 'bg-purple-100 text-purple-800' },
-  { id: 'cat_3', name: '化学', color: 'bg-green-100 text-green-800' },
+  { id: 'cat_chinese', name: '语文', color: 'bg-red-100 text-red-800' },
+  { id: 'cat_math', name: '数学', color: 'bg-sky-100 text-sky-800' },
+  { id: 'cat_english', name: '英语', color: 'bg-green-100 text-green-800' },
+  { id: 'cat_physics', name: '物理', color: 'bg-purple-100 text-purple-800' },
+  { id: 'cat_chemistry', name: '化学', color: 'bg-yellow-100 text-yellow-800' },
+  { id: 'cat_biology', name: '生物', color: 'bg-pink-100 text-pink-800' },
 ];
 
 // --- Helper Functions ---
@@ -221,7 +225,7 @@ export default function App() {
   // --- State ---
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
     curveProfiles: DEFAULT_CURVES,
     enableNotifications: false,
@@ -265,6 +269,12 @@ export default function App() {
             // Optional: Clear LS after successful migration?
             // localStorage.removeItem('memo_notes'); // Keeping it for safety for now or user manual clear
             showToast("数据已升级到大容量存储");
+        } else if (dbCats.length === 0) {
+            // If no categories exist in DB, save default categories
+            console.log("Saving default categories to IndexedDB...");
+            for (const c of DEFAULT_CATEGORIES) await dbHelper.put(STORE_CATS, c);
+            setCategories(DEFAULT_CATEGORIES);
+            if (dbSettings) setSettings(prev => ({...prev, ...dbSettings}));
         } else {
             // Normal Load
             setNotes(dbNotes);
@@ -1523,6 +1533,8 @@ export default function App() {
   const CategoryManager = () => {
     const [editingNote, setEditingNote] = useState<Note | null>(null);
     const [newCatName, setNewCatName] = useState('');
+    const [selectedColor, setSelectedColor] = useState('');
+    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; category: Category | null }>({ show: false, category: null });
 
     // Sub-component for editing a note
     const NoteEditor = ({ note, onClose }: { note: Note, onClose: () => void }) => {
@@ -1655,22 +1667,69 @@ export default function App() {
 
     const addCat = async () => {
       if(!newCatName.trim()) return;
-      const colors = ['bg-blue-100 text-blue-800', 'bg-purple-100 text-purple-800', 'bg-green-100 text-green-800', 'bg-orange-100 text-orange-800', 'bg-pink-100 text-pink-800'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      const newCat = { id: generateId(), name: newCatName, color: randomColor };
-      
+
+      // 检查分类名称是否已存在
+      const existingCategory = categories.find(cat =>
+        cat.name.toLowerCase().trim() === newCatName.toLowerCase().trim()
+      );
+
+      if (existingCategory) {
+        showToast('分类名称已存在，请选择其他名称', 'error');
+        return;
+      }
+
+      const colors = [
+        'bg-red-100 text-red-800',
+        'bg-blue-100 text-blue-800',
+        'bg-green-100 text-green-800',
+        'bg-yellow-100 text-yellow-800',
+        'bg-purple-100 text-purple-800',
+        'bg-pink-100 text-pink-800',
+        'bg-indigo-100 text-indigo-800',
+        'bg-orange-100 text-orange-800',
+        'bg-teal-100 text-teal-800',
+        'bg-cyan-100 text-cyan-800',
+        'bg-lime-100 text-lime-800',
+        'bg-emerald-100 text-emerald-800',
+        'bg-sky-100 text-sky-800',
+        'bg-violet-100 text-violet-800',
+        'bg-fuchsia-100 text-fuchsia-800',
+        'bg-rose-100 text-rose-800',
+        'bg-amber-100 text-amber-800'
+      ];
+      const color = selectedColor || colors[Math.floor(Math.random() * colors.length)];
+      const newCat = { id: generateId(), name: newCatName, color };
+
       await dbHelper.put(STORE_CATS, newCat);
       setCategories([...categories, newCat]);
       setNewCatName('');
+      setSelectedColor('');
     };
 
     const deleteCat = async (id: string) => {
+      const category = categories.find(c => c.id === id);
+      if (!category) return;
+
       if(notes.some(n => n.categoryId === id)) {
         showToast('无法删除：该分类下还有笔记', 'error');
         return;
       }
-      await dbHelper.delete(STORE_CATS, id);
-      setCategories(categories.filter(c => c.id !== id));
+
+      // Show confirmation modal
+      setDeleteConfirm({ show: true, category });
+    };
+
+    const confirmDelete = async () => {
+      if (deleteConfirm.category) {
+        await dbHelper.delete(STORE_CATS, deleteConfirm.category.id);
+        setCategories(categories.filter(c => c.id !== deleteConfirm.category!.id));
+        setDeleteConfirm({ show: false, category: null });
+        showToast('分类已删除');
+      }
+    };
+
+    const cancelDelete = () => {
+      setDeleteConfirm({ show: false, category: null });
     };
 
     // Category Detail View
@@ -1742,14 +1801,48 @@ export default function App() {
           </div>
           
           <div className="px-4">
-            <div className="flex gap-2 mb-6">
-              <input 
-                value={newCatName}
-                onChange={e => setNewCatName(e.target.value)}
-                placeholder="新分类名称"
-                className="flex-1 p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-              <button onClick={addCat} className="bg-indigo-600 text-white px-4 rounded-xl font-bold">添加</button>
+            <div className="mb-6">
+              <div className="flex gap-2 mb-3">
+                <input
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  placeholder="新分类名称"
+                  className="flex-1 p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <button onClick={addCat} className="bg-indigo-600 text-white px-4 rounded-xl font-bold">添加</button>
+              </div>
+
+              {/* 颜色选择器 */}
+              <div className="mb-3">
+                <p className="text-sm text-gray-600 mb-2">选择颜色（可选，不选则随机）</p>
+                <div className="grid grid-cols-8 gap-2">
+                  {[
+                    'bg-red-500',
+                    'bg-blue-500',
+                    'bg-green-500',
+                    'bg-yellow-500',
+                    'bg-purple-500',
+                    'bg-pink-500',
+                    'bg-indigo-500',
+                    'bg-orange-500',
+                    'bg-teal-500',
+                    'bg-cyan-500',
+                    'bg-lime-500',
+                    'bg-emerald-500',
+                    'bg-sky-500',
+                    'bg-violet-500',
+                    'bg-fuchsia-500',
+                    'bg-rose-500',
+                    'bg-amber-500'
+                  ].map((color, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedColor(color.replace('500', '100') + ' ' + color.replace('500', '800'))}
+                      className={`w-8 h-8 rounded-full ${color} ${selectedColor === color.replace('500', '100') + ' ' + color.replace('500', '800') ? 'ring-2 ring-gray-400 ring-offset-2' : 'hover:scale-110'} transition-transform`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1766,6 +1859,41 @@ export default function App() {
               ))}
             </div>
           </div>
+
+          {/* Delete Confirmation Modal */}
+          {deleteConfirm.show && deleteConfirm.category && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95">
+                <div className="text-center">
+                  <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h3 className="font-bold text-lg text-gray-800 mb-2">确认删除分类</h3>
+                  <p className="text-gray-600 text-sm">
+                    确定要删除分类 <span className="font-semibold text-gray-800">{deleteConfirm.category.name}</span> 吗？
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    此操作不可撤销，删除后无法恢复
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={cancelDelete}
+                    className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
        </div>
     );
   };
