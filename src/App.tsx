@@ -981,6 +981,30 @@ export default function App() {
             </div>
           </div>
 
+          {/* Today's Added Notes Distribution */}
+          {getTodayAddedCategoryDistribution().length > 0 && (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
+              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-green-500" />
+                今日新增分布
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {getTodayAddedCategoryDistribution().map((item) => {
+                  const category = categories.find(cat => cat.name === item.name);
+                  return (
+                    <div key={item.name} className={`${category?.color || 'bg-gray-100 text-gray-800'} p-3 rounded-lg`}>
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-sm">{item.name}</span>
+                        <span className="text-lg font-bold">{item.value}</span>
+                      </div>
+                      <div className="text-xs opacity-70 mt-1">条笔记</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Overall Stats */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <h3 className="font-semibold text-gray-700 mb-3">总体统计</h3>
