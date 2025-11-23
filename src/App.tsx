@@ -2487,18 +2487,20 @@ export default function App() {
                     {n.title}
                     <Edit3 className="w-3 h-3 text-gray-300" />
                   </h3>
-                  <p className="text-sm text-gray-500 truncate mt-1">{n.content || (n.images.length > 0 ? '图片笔记' : '')}</p>
+                  <p className="text-sm text-gray-500 mt-1 overflow-hidden" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                    {n.content || (n.images.length > 0 ? '图片笔记' : '')}
+                  </p>
 
                   {/* Show image thumbnails if note has images */}
                   {n.images.length > 0 && (
-                    <div className="flex gap-1 mt-2">
+                    <div className="flex gap-1 mt-2 flex-shrink-0">
                       {n.images.slice(0, 3).map((img, idx) => (
-                        <div key={idx} className="w-8 h-8 rounded overflow-hidden border cursor-pointer hover:opacity-80 transition" onClick={() => setPreviewImage(img)}>
+                        <div key={idx} className="w-8 h-8 rounded overflow-hidden border cursor-pointer hover:opacity-80 transition flex-shrink-0" onClick={() => setPreviewImage(img)}>
                           <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
                         </div>
                       ))}
                       {n.images.length > 3 && (
-                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
+                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
                           +{n.images.length - 3}
                         </div>
                       )}
