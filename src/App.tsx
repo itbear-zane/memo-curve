@@ -698,6 +698,7 @@ export default function App() {
     const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
     const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
     const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
 
     // 过滤掉已经复习过的笔记
     const availableDueNotes = dueNotes.filter(note => note.nextReviewDate <= Date.now());
@@ -720,6 +721,7 @@ export default function App() {
     const minSwipeDistance = 50;
 
     const onTouchStart = (e: React.TouchEvent) => {
+      if (isAnimating) return;
       setTouchEnd(null);
       setTouchStart({
         x: e.targetTouches[0].clientX,
@@ -728,20 +730,41 @@ export default function App() {
     };
 
     const onTouchMove = (e: React.TouchEvent) => {
+      if (isAnimating) return;
       setTouchEnd({
         x: e.targetTouches[0].clientX,
         y: e.targetTouches[0].clientY,
       });
     };
 
+    // Calculate swipe progress for visual feedback
+    const getSwipeProgress = () => {
+      if (!touchStart || !touchEnd || isAnimating) return 0;
+
+      const distanceX = touchStart.x - touchEnd.x;
+      const distanceY = touchStart.y - touchEnd.y;
+      const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
+
+      if (!isHorizontalSwipe) return 0;
+
+      // Normalize progress between 0 and 1
+      const progress = Math.min(Math.abs(distanceX) / minSwipeDistance, 1);
+      return progress * (distanceX > 0 ? -1 : 1); // Negative for left, positive for right
+    };
+
+    // Get current swipe progress for real-time visual feedback
+    const swipeProgress = getSwipeProgress();
+
     const onTouchEnd = () => {
-      if (!touchStart || !touchEnd) return;
+      if (!touchStart || !touchEnd || isAnimating) return;
 
       const distanceX = touchStart.x - touchEnd.x;
       const distanceY = touchStart.y - touchEnd.y;
       const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
 
       if (isHorizontalSwipe && Math.abs(distanceX) > minSwipeDistance) {
+        setIsAnimating(true);
+
         if (distanceX > 0) {
           // Swipe left - next note
           if (currentReviewIndex < availableDueNotes.length - 1) {
@@ -750,7 +773,10 @@ export default function App() {
               setCurrentReviewIndex(prev => prev + 1);
               setShowAnswer(false);
               setSlideDirection(null);
+              setIsAnimating(false);
             }, 300);
+          } else {
+            setIsAnimating(false);
           }
         } else {
           // Swipe right - previous note
@@ -760,7 +786,10 @@ export default function App() {
               setCurrentReviewIndex(prev => prev - 1);
               setShowAnswer(false);
               setSlideDirection(null);
+              setIsAnimating(false);
             }, 300);
+          } else {
+            setIsAnimating(false);
           }
         }
       }
@@ -774,18 +803,55 @@ export default function App() {
           <div className="w-6"></div>
         </div>
 
-        <div className="flex-1 p-4 flex flex-col justify-center max-w-md mx-auto w-full">
+        <div className="flex-1 p-4 flex flex-col justify-center max-w-md mx-auto w-full relative">
+          {/* Swipe Progress Indicator */}
+          {swipeProgress !== 0 && (
+            <div className="absolute top-4 left-0 right-0 flex justify-center z-10">
+              <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                {swipeProgress > 0 ? (
+                  <>
+                    <span>← 滑动返回</span>
+                    <div className="w-16 bg-white/30 rounded-full h-1">
+                      <div
+                        className="bg-white h-1 rounded-full transition-all duration-100"
+                        style={{ width: `${Math.abs(swipeProgress) * 100}%` }}
+                      ></div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 bg-white/30 rounded-full h-1">
+                      <div
+                        className="bg-white h-1 rounded-full transition-all duration-100"
+                        style={{ width: `${Math.abs(swipeProgress) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span>滑动继续 →</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <div
-            className={`bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative cursor-pointer transition-transform duration-300 ${
-              slideDirection === 'left' ? 'translate-x-full opacity-0' :
-              slideDirection === 'right' ? '-translate-x-full opacity-0' :
-              'translate-x-0 opacity-100'
+            className={`bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative cursor-pointer transition-all duration-300 ease-out ${
+              slideDirection === 'left' ? 'translate-x-full opacity-0 scale-95' :
+              slideDirection === 'right' ? '-translate-x-full opacity-0 scale-95' :
+              'translate-x-0 opacity-100 scale-100'
             }`}
+            style={{
+              transform: swipeProgress !== 0
+                ? `translateX(${swipeProgress * 20}px) scale(${1 - Math.abs(swipeProgress) * 0.05})`
+                : undefined,
+              opacity: swipeProgress !== 0
+                ? 1 - Math.abs(swipeProgress) * 0.3
+                : undefined
+            }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
             onClick={() => {
-              if (!showAnswer) {
+              if (!showAnswer && !isAnimating) {
                 setShowAnswer(true);
               }
             }}
