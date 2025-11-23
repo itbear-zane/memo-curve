@@ -21,213 +21,17 @@ import {
   PieChart as PieChartIcon,
   TrendingUp as TrendingUpIcon
 } from 'lucide-react';
-import { isBefore, endOfDay, isToday, startOfDay, subDays, format } from 'date-fns';
+import { endOfDay, startOfDay, subDays, format } from 'date-fns';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import html2canvas from 'html2canvas';
-
-// --- 1. IndexedDB Utility Layer (No external deps) ---
-
-const DB_NAME = 'MemoCurveDB';
-const DB_VERSION = 1;
-const STORE_NOTES = 'notes';
-const STORE_CATS = 'categories';
-const STORE_SETTINGS = 'settings';
-
-// 使用标准方法定义以避免TSX泛型解析错误
-const dbHelper = {
-  db: null as IDBDatabase | null,
-
-  init() {
-    return new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NOTES)) db.createObjectStore(STORE_NOTES, { keyPath: 'id' });
-        if (!db.objectStoreNames.contains(STORE_CATS)) db.createObjectStore(STORE_CATS, { keyPath: 'id' });
-        // Settings is a singleton object, we'll use a fixed key 'appSettings' or just store/put
-        if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
-      };
-      request.onsuccess = (event: Event) => {
-        dbHelper.db = (event.target as IDBOpenDBRequest).result;
-        // Try to ask for persistent storage
-        if (navigator.storage && navigator.storage.persist) {
-          navigator.storage.persist().then(granted => {
-            console.log(granted ? "Storage will not be cleared except by explicit user action" : "Storage may be cleared by the UA under storage pressure.");
-          });
-        }
-        resolve();
-      };
-      request.onerror = (e) => reject(e);
-    });
-  },
-
-  async getAll<T>(storeName: string): Promise<T[]> {
-    return new Promise((resolve, reject) => {
-      if (!dbHelper.db) return reject('DB not init');
-      const transaction = dbHelper.db.transaction([storeName], 'readonly');
-      const request = transaction.objectStore(storeName).getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  },
-
-  async get<T>(storeName: string, key: string): Promise<T | undefined> {
-    return new Promise((resolve, reject) => {
-      if (!dbHelper.db) return reject('DB not init');
-      const transaction = dbHelper.db.transaction([storeName], 'readonly');
-      const request = transaction.objectStore(storeName).get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  },
-
-  async put(storeName: string, data: unknown, key?: string) {
-    return new Promise<void>((resolve, reject) => {
-      if (!dbHelper.db) return reject('DB not init');
-      const transaction = dbHelper.db.transaction([storeName], 'readwrite');
-      const request = key ? transaction.objectStore(storeName).put(data, key) : transaction.objectStore(storeName).put(data);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  },
-
-  async delete(storeName: string, key: string) {
-    return new Promise<void>((resolve, reject) => {
-      if (!dbHelper.db) return reject('DB not init');
-      const transaction = dbHelper.db.transaction([storeName], 'readwrite');
-      const request = transaction.objectStore(storeName).delete(key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  },
-
-  async clearStore(storeName: string) {
-    return new Promise<void>((resolve, reject) => {
-        if (!dbHelper.db) return reject('DB not init');
-        const transaction = dbHelper.db.transaction([storeName], 'readwrite');
-        const request = transaction.objectStore(storeName).clear();
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-  }
-};
-
-// --- Types & Constants ---
-
-type CurveProfile = {
-  id: string;
-  name: string;
-  intervals: number[]; 
-  isDefault?: boolean; 
-};
-
-type Note = {
-  id: string;
-  categoryId: string;
-  curveId: string; 
-  title: string;
-  content: string;
-  images: string[]; 
-  createdAt: number;
-  nextReviewDate: number;
-  stage: number; 
-  reviewHistory: { date: number; action: 'remembered' | 'forgot' }[];
-};
-
-type Category = {
-  id: string;
-  name: string;
-  color: string;
-  sortOrder?: number; // 新增排序字段
-};
-
-type AppSettings = {
-  curveProfiles: CurveProfile[];
-  enableNotifications: boolean;
-};
-
-const DEFAULT_CURVES: CurveProfile[] = [
-  { id: 'curve_gaokao_intensive', name: '高考高频冲刺（30次复习）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 21, 24, 27, 30, 33, 37, 41, 45, 50, 55, 60, 70, 80, 90, 100], isDefault: true },
-  { id: 'curve_gaokao_layered', name: '高考分层复习', intervals: [1, 2, 3, 4, 5, 7, 9, 11, 13, 15, 18, 21, 24, 27, 30, 34, 38, 42, 46, 50, 55, 60, 66, 72, 78, 84, 91, 98, 105, 112, 120, 128, 136, 145, 154, 163, 172, 181], isDefault: true },
-  { id: 'curve_gaokao_intensive_ultra', name: '终极密集曲线（适合重点内容）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 64, 67, 70, 73, 76, 79, 82, 85, 88, 91, 95, 99, 103, 107, 111, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180], isDefault: true },
-  { id: 'curve_english_vocab', name: '英语单词专项', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 166, 168, 170, 172, 174, 176, 178, 180], isDefault: true }
-];
-
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat_chinese', name: '语文', color: 'bg-red-100 text-red-800', sortOrder: 1 },
-  { id: 'cat_math', name: '数学', color: 'bg-sky-100 text-sky-800', sortOrder: 2 },
-  { id: 'cat_english', name: '英语', color: 'bg-green-100 text-green-800', sortOrder: 3 },
-  { id: 'cat_physics', name: '物理', color: 'bg-purple-100 text-purple-800', sortOrder: 4 },
-  { id: 'cat_chemistry', name: '化学', color: 'bg-yellow-100 text-yellow-800', sortOrder: 5 },
-  { id: 'cat_biology', name: '生物', color: 'bg-pink-100 text-pink-800', sortOrder: 6 },
-];
-
-// --- Helper Functions ---
-
-const generateId = () => Math.random().toString(36).substring(2, 11);
-
-const getRelativeTime = (timestamp: number) => {
-  const diff = timestamp - Date.now();
-  const diffDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-  // 使用新的过期逻辑：如果笔记的复习时间在今天晚上12点之前，显示"今天"
-  if (isToday(timestamp)) {
-    return '今天';
-  }
-
-  // 如果笔记的复习时间已经过了当天晚上12点，显示"已过期"
-  const reviewDayEnd = endOfDay(timestamp);
-  if (isBefore(reviewDayEnd, Date.now())) {
-    return '已过期';
-  }
-
-  if (diffDays <= 0) return '今天';
-  if (diffDays === 1) return '明天';
-  return `${diffDays}天后`;
-};
-
-// Check if a note is overdue (after end of the review day)
-const isNoteOverdue = (note: Note): boolean => {
-  const reviewDayEnd = endOfDay(note.nextReviewDate);
-  return isBefore(reviewDayEnd, Date.now());
-};
-
-// Check if a note is due (overdue after end of review day)
-const isNoteDue = (note: Note): boolean => {
-  return isNoteOverdue(note);
-};
-
-// Compress image to avoid massive blobs if user uploads 4k photos
-const compressImage = async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800; // Limit width
-                let width = img.width;
-                let height = img.height;
-
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress quality
-            };
-        };
-    });
-};
+import dbHelper, { STORE_NOTES, STORE_CATS, STORE_SETTINGS } from './utils/database';
+import { generateId, getRelativeTime, isNoteDue, compressImage } from './utils/helper_functions';
+import type { CurveProfile, Note, Category, AppSettings } from './constants'
+import { DEFAULT_CURVES, DEFAULT_CATEGORIES } from './constants'
 
 // --- Components ---
 
@@ -263,46 +67,46 @@ export default function App() {
         // 2. Migration Check: If IDB is empty but localStorage has data (First run after update)
         const lsNotes = localStorage.getItem('memo_notes');
         if (dbNotes.length === 0 && lsNotes) {
-            console.log("Migrating from LocalStorage to IndexedDB...");
-            const parsedNotes = JSON.parse(lsNotes);
-            const parsedCats = JSON.parse(localStorage.getItem('memo_cats') || '[]');
-            const parsedSettings = JSON.parse(localStorage.getItem('memo_settings') || '{}');
+          console.log("Migrating from LocalStorage to IndexedDB...");
+          const parsedNotes = JSON.parse(lsNotes);
+          const parsedCats = JSON.parse(localStorage.getItem('memo_cats') || '[]');
+          const parsedSettings = JSON.parse(localStorage.getItem('memo_settings') || '{}');
 
-            // Batch save to IDB
-            for (const n of parsedNotes) await dbHelper.put(STORE_NOTES, n);
-            for (const c of parsedCats) await dbHelper.put(STORE_CATS, c);
-            if (parsedSettings) await dbHelper.put(STORE_SETTINGS, parsedSettings, 'config');
+          // Batch save to IDB
+          for (const n of parsedNotes) await dbHelper.put(STORE_NOTES, n);
+          for (const c of parsedCats) await dbHelper.put(STORE_CATS, c);
+          if (parsedSettings) await dbHelper.put(STORE_SETTINGS, parsedSettings, 'config');
 
-            // Load from LS data
-            setNotes(parsedNotes);
-            if (parsedCats.length) setCategories(parsedCats);
-            if (parsedSettings.curveProfiles) setSettings(parsedSettings);
+          // Load from LS data
+          setNotes(parsedNotes);
+          if (parsedCats.length) setCategories(parsedCats);
+          if (parsedSettings.curveProfiles) setSettings(parsedSettings);
 
-            // Optional: Clear LS after successful migration?
-            // localStorage.removeItem('memo_notes'); // Keeping it for safety for now or user manual clear
-            showToast("数据已升级到大容量存储");
+          // Optional: Clear LS after successful migration?
+          // localStorage.removeItem('memo_notes'); // Keeping it for safety for now or user manual clear
+          showToast("数据已升级到大容量存储");
         } else if (dbCats.length === 0) {
-            // If no categories exist in DB, save default categories
-            console.log("Saving default categories to IndexedDB...");
-            const categoriesWithSortOrder = DEFAULT_CATEGORIES.map((cat, index) => ({
-                ...cat,
-                sortOrder: index
-            }));
-            for (const c of categoriesWithSortOrder) await dbHelper.put(STORE_CATS, c);
-            setCategories(categoriesWithSortOrder);
-            if (dbSettings) setSettings(prev => ({...prev, ...dbSettings}));
+          // If no categories exist in DB, save default categories
+          console.log("Saving default categories to IndexedDB...");
+          const categoriesWithSortOrder = DEFAULT_CATEGORIES.map((cat, index) => ({
+            ...cat,
+            sortOrder: index
+          }));
+          for (const c of categoriesWithSortOrder) await dbHelper.put(STORE_CATS, c);
+          setCategories(categoriesWithSortOrder);
+          if (dbSettings) setSettings(prev => ({ ...prev, ...dbSettings }));
         } else {
-            // Normal Load - 为现有分类添加排序顺序（如果没有的话）
-            setNotes(dbNotes);
-            if (dbCats.length > 0) {
-                // 检查是否需要为现有分类添加排序顺序
-                const categoriesWithSortOrder = dbCats.map((cat, index) => ({
-                    ...cat,
-                    sortOrder: cat.sortOrder ?? index
-                }));
-                setCategories(categoriesWithSortOrder);
-            }
-            if (dbSettings) setSettings(prev => ({...prev, ...dbSettings}));
+          // Normal Load - 为现有分类添加排序顺序（如果没有的话）
+          setNotes(dbNotes);
+          if (dbCats.length > 0) {
+            // 检查是否需要为现有分类添加排序顺序
+            const categoriesWithSortOrder = dbCats.map((cat, index) => ({
+              ...cat,
+              sortOrder: cat.sortOrder ?? index
+            }));
+            setCategories(categoriesWithSortOrder);
+          }
+          if (dbSettings) setSettings(prev => ({ ...prev, ...dbSettings }));
         }
       } catch (e) {
         console.error("DB Init Failed", e);
@@ -321,23 +125,23 @@ export default function App() {
   // In a production app, we might debounce this or use specific actions.
 
   const saveNoteToDB = async (note: Note) => {
-      await dbHelper.put(STORE_NOTES, note);
-      setNotes(prev => {
-          const exists = prev.find(n => n.id === note.id);
-          if (exists) return prev.map(n => n.id === note.id ? note : n);
-          return [...prev, note];
-      });
+    await dbHelper.put(STORE_NOTES, note);
+    setNotes(prev => {
+      const exists = prev.find(n => n.id === note.id);
+      if (exists) return prev.map(n => n.id === note.id ? note : n);
+      return [...prev, note];
+    });
   };
 
   const deleteNoteFromDB = async (id: string) => {
-      await dbHelper.delete(STORE_NOTES, id);
-      setNotes(prev => prev.filter(n => n.id !== id));
+    await dbHelper.delete(STORE_NOTES, id);
+    setNotes(prev => prev.filter(n => n.id !== id));
   };
 
-  
+
   const saveSettingsToDB = async (newSettings: AppSettings) => {
-      setSettings(newSettings);
-      await dbHelper.put(STORE_SETTINGS, newSettings, 'config');
+    setSettings(newSettings);
+    await dbHelper.put(STORE_SETTINGS, newSettings, 'config');
   };
 
   // Notification Check
@@ -346,7 +150,7 @@ export default function App() {
       const dueCount = notes.filter(n => isNoteDue(n)).length;
       if (dueCount > 0 && Notification.permission === 'granted') {
         const timer = setTimeout(() => {
-           new Notification('复习提醒', { body: `你有 ${dueCount} 条笔记需要现在复习！` });
+          new Notification('复习提醒', { body: `你有 ${dueCount} 条笔记需要现在复习！` });
         }, 1000);
         return () => clearTimeout(timer);
       }
@@ -455,51 +259,51 @@ export default function App() {
 
   // --- Export / Import Data ---
   const handleExportData = async () => {
-      const exportData = {
-          notes,
-          categories,
-          settings,
-          exportedAt: Date.now()
-      };
-      const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `memocurve_backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
+    const exportData = {
+      notes,
+      categories,
+      settings,
+      exportedAt: Date.now()
+    };
+    const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `memocurve_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
   };
 
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-          try {
-              const data = JSON.parse(ev.target?.result as string);
-              if (data.notes && Array.isArray(data.notes)) {
-                  if(!confirm('导入将覆盖现有的一些数据（如果ID相同），确定吗？建议先备份。')) return;
-                  
-                  setLoading(true);
-                  // Batch put
-                  for(const n of data.notes) await dbHelper.put(STORE_NOTES, n);
-                  if(data.categories) for(const c of data.categories) await dbHelper.put(STORE_CATS, c);
-                  if(data.settings) await dbHelper.put(STORE_SETTINGS, data.settings, 'config');
-                  
-                  // Reload state
-                  const dbNotes = await dbHelper.getAll<Note>(STORE_NOTES);
-                  setNotes(dbNotes);
-                  if (data.categories) setCategories(data.categories);
-                  if (data.settings) setSettings(data.settings);
-                  
-                  showToast(`成功导入 ${data.notes.length} 条笔记`);
-              }
-          } catch {
-              showToast('文件格式错误', 'error');
-          } finally {
-              setLoading(false);
-          }
-      };
-      reader.readAsText(file);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (data.notes && Array.isArray(data.notes)) {
+          if (!confirm('导入将覆盖现有的一些数据（如果ID相同），确定吗？建议先备份。')) return;
+
+          setLoading(true);
+          // Batch put
+          for (const n of data.notes) await dbHelper.put(STORE_NOTES, n);
+          if (data.categories) for (const c of data.categories) await dbHelper.put(STORE_CATS, c);
+          if (data.settings) await dbHelper.put(STORE_SETTINGS, data.settings, 'config');
+
+          // Reload state
+          const dbNotes = await dbHelper.getAll<Note>(STORE_NOTES);
+          setNotes(dbNotes);
+          if (data.categories) setCategories(data.categories);
+          if (data.settings) setSettings(data.settings);
+
+          showToast(`成功导入 ${data.notes.length} 条笔记`);
+        }
+      } catch {
+        showToast('文件格式错误', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   // --- 统计数据计算 ---
@@ -682,9 +486,9 @@ export default function App() {
                   <div style="font-weight: 600; color: #374151;">${item.name}</div>
                   <div style="font-size: 14px; color: #6b7280;">
                     ${item.isNewNoteOnly ?
-                      `<span style="color: #10b981;">今日新添加 (${item.total}条)</span>` :
-                      `${item.completed}/${item.needReview} (${item.rate}%)`
-                    }
+          `<span style="color: #10b981;">今日新添加 (${item.total}条)</span>` :
+          `${item.completed}/${item.needReview} (${item.rate}%)`
+        }
                   </div>
                 </div>
                 ${!item.isNewNoteOnly ? `
@@ -872,44 +676,40 @@ export default function App() {
           <div className="flex border-b">
             <button
               onClick={() => setActiveTab('category')}
-              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
-                activeTab === 'category'
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${activeTab === 'category'
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <PieChartIcon className="w-4 h-4 inline mr-1" />
               分类分布
             </button>
             <button
               onClick={() => setActiveTab('today')}
-              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
-                activeTab === 'today'
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${activeTab === 'today'
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <Calendar className="w-4 h-4 inline mr-1" />
               今日新增
             </button>
             <button
               onClick={() => setActiveTab('trend')}
-              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
-                activeTab === 'trend'
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${activeTab === 'trend'
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <TrendingUpIcon className="w-4 h-4 inline mr-1" />
               学习趋势
             </button>
             <button
               onClick={() => setActiveTab('completion')}
-              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${
-                activeTab === 'completion'
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${activeTab === 'completion'
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <Target className="w-4 h-4 inline mr-1" />
               完成率
@@ -1084,7 +884,7 @@ export default function App() {
               </div>
             )}
 
-  
+
             {(completionData.length === 0 && activeTab === 'completion') && (
               <div className="text-center py-12 text-gray-500">
                 暂无复习数据
@@ -1096,16 +896,16 @@ export default function App() {
     );
   };
 
-// --- Views ---
+  // --- Views ---
 
   if (loading) {
-      return (
-          <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-indigo-600">
-              <RotateCw className="w-10 h-10 animate-spin mb-4" />
-              <p className="font-bold">正在从本地数据库加载...</p>
-              <p className="text-xs text-gray-400 mt-2">支持海量存储模式</p>
-          </div>
-      );
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-indigo-600">
+        <RotateCw className="w-10 h-10 animate-spin mb-4" />
+        <p className="font-bold">正在从本地数据库加载...</p>
+        <p className="text-xs text-gray-400 mt-2">支持海量存储模式</p>
+      </div>
+    );
   }
 
   const Dashboard = () => {
@@ -1277,17 +1077,17 @@ export default function App() {
       if (e.target.files && e.target.files.length > 0) {
         setIsProcessingImg(true);
         try {
-            const files = Array.from(e.target.files);
-            // Process all selected files
-            for (const file of files) {
-              // Compress image before storage
-              const compressedBase64 = await compressImage(file);
-              setImages(prev => [...prev, compressedBase64]);
-            }
+          const files = Array.from(e.target.files);
+          // Process all selected files
+          for (const file of files) {
+            // Compress image before storage
+            const compressedBase64 = await compressImage(file);
+            setImages(prev => [...prev, compressedBase64]);
+          }
         } catch {
-            showToast('图片处理失败', 'error');
+          showToast('图片处理失败', 'error');
         } finally {
-            setIsProcessingImg(false);
+          setIsProcessingImg(false);
         }
       }
     };
@@ -1312,7 +1112,7 @@ export default function App() {
           <button onClick={() => setView('dashboard')}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
           <h2 className="font-bold text-lg">新建笔记</h2>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1398,7 +1198,7 @@ export default function App() {
         </div>
 
         <div className="p-4 border-t">
-          <button 
+          <button
             onClick={submit}
             className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition"
           >
@@ -1550,11 +1350,10 @@ export default function App() {
           )}
 
           <div
-            className={`bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative cursor-pointer transition-all duration-300 ease-out ${
-              slideDirection === 'left' ? 'translate-x-full opacity-0 scale-95' :
-              slideDirection === 'right' ? '-translate-x-full opacity-0 scale-95' :
-              'translate-x-0 opacity-100 scale-100'
-            }`}
+            className={`bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col min-h-[400px] relative cursor-pointer transition-all duration-300 ease-out ${slideDirection === 'left' ? 'translate-x-full opacity-0 scale-95' :
+                slideDirection === 'right' ? '-translate-x-full opacity-0 scale-95' :
+                  'translate-x-0 opacity-100 scale-100'
+              }`}
             style={{
               transform: swipeProgress !== 0
                 ? `translateX(${swipeProgress * 20}px) scale(${1 - Math.abs(swipeProgress) * 0.05})`
@@ -1716,7 +1515,7 @@ export default function App() {
                 {/* Y-axis labels (Review Numbers) */}
                 <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-400">
                   <span>第{maxReviewNumber}次</span>
-                  <span>第{Math.floor(maxReviewNumber * 3/4)}次</span>
+                  <span>第{Math.floor(maxReviewNumber * 3 / 4)}次</span>
                   <span>第{Math.floor(maxReviewNumber / 2)}次</span>
                   <span>第{Math.floor(maxReviewNumber / 4)}次</span>
                   <span>第0次</span>
@@ -1971,17 +1770,17 @@ export default function App() {
   const SettingsView = () => {
     const [editedCurves, setEditedCurves] = useState<CurveProfile[]>(settings.curveProfiles);
     const [isDirty, setIsDirty] = useState(false);
-    const [quota, setQuota] = useState<{usage: number, quota: number} | null>(null);
+    const [quota, setQuota] = useState<{ usage: number, quota: number } | null>(null);
     const [editingCurve, setEditingCurve] = useState<CurveProfile | null>(null);
     const [isNewCurve, setIsNewCurve] = useState(false);
     const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
 
     useEffect(() => {
-        if ('storage' in navigator && 'estimate' in navigator.storage) {
-            navigator.storage.estimate().then(({usage, quota}) => {
-                setQuota({ usage: usage || 0, quota: quota || 0 });
-            });
-        }
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        navigator.storage.estimate().then(({ usage, quota }) => {
+          setQuota({ usage: usage || 0, quota: quota || 0 });
+        });
+      }
     }, []);
 
 
@@ -2018,14 +1817,14 @@ export default function App() {
       setIsDirty(false);
       showToast('设置已保存');
     };
-    
+
     const formatBytes = (bytes: number, decimals = 2) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     };
 
     return (
@@ -2043,36 +1842,36 @@ export default function App() {
         </div>
 
         <div className="px-4 space-y-6">
-           {/* Storage Management */}
-           <section className="bg-white p-4 rounded-xl shadow-sm">
+          {/* Storage Management */}
+          <section className="bg-white p-4 rounded-xl shadow-sm">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
               <HardDrive className="w-5 h-5 text-indigo-500" /> 存储空间 (IndexedDB)
             </h3>
             {quota ? (
-                <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-gray-600">
-                        <span>已用: {formatBytes(quota.usage)}</span>
-                        <span>总量: {formatBytes(quota.quota)}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5">
-                        <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min((quota.usage / quota.quota) * 100, 100)}%` }}></div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                        * 数据存储在本地浏览器中。为防止丢失，请定期导出备份。
-                    </p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>已用: {formatBytes(quota.usage)}</span>
+                  <span>总量: {formatBytes(quota.quota)}</span>
                 </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5">
+                  <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min((quota.usage / quota.quota) * 100, 100)}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  * 数据存储在本地浏览器中。为防止丢失，请定期导出备份。
+                </p>
+              </div>
             ) : (
-                <p className="text-sm text-gray-500">正在计算存储空间...</p>
+              <p className="text-sm text-gray-500">正在计算存储空间...</p>
             )}
-            
+
             <div className="grid grid-cols-2 gap-3 mt-4">
-                <button onClick={handleExportData} className="flex items-center justify-center gap-2 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-100">
-                    <Download className="w-4 h-4" /> 导出备份
-                </button>
-                <label className="flex items-center justify-center gap-2 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-100 cursor-pointer">
-                    <Upload className="w-4 h-4" /> 导入数据
-                    <input type="file" accept=".json" className="hidden" onChange={handleImportData} />
-                </label>
+              <button onClick={handleExportData} className="flex items-center justify-center gap-2 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-100">
+                <Download className="w-4 h-4" /> 导出备份
+              </button>
+              <label className="flex items-center justify-center gap-2 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-100 cursor-pointer">
+                <Upload className="w-4 h-4" /> 导入数据
+                <input type="file" accept=".json" className="hidden" onChange={handleImportData} />
+              </label>
             </div>
           </section>
 
@@ -2083,7 +1882,7 @@ export default function App() {
               </h3>
               <button onClick={addCurve} className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold">+ 新建</button>
             </div>
-            
+
             <div className="space-y-4">
               {editedCurves.map((curve, idx) => (
                 <div key={curve.id} className="border-b pb-4 last:border-0 last:pb-0">
@@ -2136,7 +1935,7 @@ export default function App() {
             </h3>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">复习提醒</span>
-              <button 
+              <button
                 onClick={requestNotificationPermission}
                 className={`w-12 h-6 rounded-full transition-colors relative ${settings.enableNotifications ? 'bg-green-500' : 'bg-gray-300'}`}
               >
@@ -2146,12 +1945,12 @@ export default function App() {
           </section>
 
           <section className="bg-white p-4 rounded-xl shadow-sm">
-             <h3 className="font-bold text-gray-800 mb-4 text-red-500 flex items-center gap-2">
+            <h3 className="font-bold text-gray-800 mb-4 text-red-500 flex items-center gap-2">
               <Trash2 className="w-5 h-5" /> 危险区域
             </h3>
-            <button 
+            <button
               onClick={async () => {
-                if(confirm('这将清除所有数据且无法恢复！确定吗？')) {
+                if (confirm('这将清除所有数据且无法恢复！确定吗？')) {
                   await dbHelper.clearStore(STORE_NOTES);
                   await dbHelper.clearStore(STORE_CATS);
                   // Clear settings but keep defaults maybe? or full nuke
@@ -2234,17 +2033,17 @@ export default function App() {
         if (e.target.files && e.target.files.length > 0) {
           setIsProcessingImg(true);
           try {
-              const files = Array.from(e.target.files);
-              // Process all selected files
-              for (const file of files) {
-                // Compress image before storage
-                const compressedBase64 = await compressImage(file);
-                setImages(prev => [...prev, compressedBase64]);
-              }
+            const files = Array.from(e.target.files);
+            // Process all selected files
+            for (const file of files) {
+              // Compress image before storage
+              const compressedBase64 = await compressImage(file);
+              setImages(prev => [...prev, compressedBase64]);
+            }
           } catch {
-              showToast('图片处理失败', 'error');
+            showToast('图片处理失败', 'error');
           } finally {
-              setIsProcessingImg(false);
+            setIsProcessingImg(false);
           }
         }
       };
@@ -2255,8 +2054,8 @@ export default function App() {
         if (reschedule && curveId !== note.curveId) {
           const newCurve = settings.curveProfiles.find(c => c.id === curveId);
           if (newCurve) {
-             updatedNote.nextReviewDate = Date.now();
-             updatedNote.stage = Math.max(0, updatedNote.stage - 1);
+            updatedNote.nextReviewDate = Date.now();
+            updatedNote.stage = Math.max(0, updatedNote.stage - 1);
           }
         }
 
@@ -2267,11 +2066,11 @@ export default function App() {
       return (
         <div className="fixed inset-0 bg-white z-50 flex flex-col">
           <div className="p-4 border-b flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <button onClick={onClose}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
-                <h2 className="font-bold text-lg">编辑笔记</h2>
-             </div>
-             <button onClick={save} className="text-indigo-600 font-bold">保存</button>
+            <div className="flex items-center gap-3">
+              <button onClick={onClose}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
+              <h2 className="font-bold text-lg">编辑笔记</h2>
+            </div>
+            <button onClick={save} className="text-indigo-600 font-bold">保存</button>
           </div>
           <div className="p-4 space-y-4 overflow-y-auto">
             <div>
@@ -2322,28 +2121,28 @@ export default function App() {
             </div>
 
             <div className="bg-indigo-50 p-4 rounded-xl">
-               <label className="block text-sm text-indigo-800 mb-2 font-bold flex items-center gap-2">
-                 <TrendingUp className="w-4 h-4" /> 复习策略 (遗忘曲线)
-               </label>
-               <select
-                  value={curveId}
-                  onChange={e => setCurveId(e.target.value)}
-                  className="w-full p-2 bg-white rounded-lg border border-indigo-100 mb-2"
-                >
-                  {settings.curveProfiles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-               </select>
-               {curveId !== note.curveId && (
-                 <div className="flex items-center gap-2 text-xs text-indigo-600 mt-2">
-                   <input
+              <label className="block text-sm text-indigo-800 mb-2 font-bold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" /> 复习策略 (遗忘曲线)
+              </label>
+              <select
+                value={curveId}
+                onChange={e => setCurveId(e.target.value)}
+                className="w-full p-2 bg-white rounded-lg border border-indigo-100 mb-2"
+              >
+                {settings.curveProfiles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {curveId !== note.curveId && (
+                <div className="flex items-center gap-2 text-xs text-indigo-600 mt-2">
+                  <input
                     type="checkbox"
                     id="reschedule"
                     checked={reschedule}
                     onChange={e => setReschedule(e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500"
-                   />
-                   <label htmlFor="reschedule">立即重新安排复习 (设为今天到期)</label>
-                 </div>
-               )}
+                  />
+                  <label htmlFor="reschedule">立即重新安排复习 (设为今天到期)</label>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2355,7 +2154,7 @@ export default function App() {
     }
 
     const addCat = async () => {
-      if(!newCatName.trim()) return;
+      if (!newCatName.trim()) return;
 
       // 检查分类名称是否已存在
       const existingCategory = categories.find(cat =>
@@ -2404,7 +2203,7 @@ export default function App() {
       const category = categories.find(c => c.id === id);
       if (!category) return;
 
-      if(notes.some(n => n.categoryId === id)) {
+      if (notes.some(n => n.categoryId === id)) {
         showToast('无法删除：该分类下还有笔记', 'error');
         return;
       }
@@ -2466,14 +2265,14 @@ export default function App() {
     if (activeCategory) {
       const cat = categories.find(c => c.id === activeCategory);
       const catNotes = notes.filter(n => n.categoryId === activeCategory);
-      
+
       return (
         <div className="bg-gray-50 min-h-screen pb-20">
-           <div className="p-4 bg-white shadow-sm flex items-center gap-3 sticky top-0 z-10">
+          <div className="p-4 bg-white shadow-sm flex items-center gap-3 sticky top-0 z-10">
             <button onClick={() => { setActiveCategory(null); setView('dashboard'); }}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
             <h2 className="font-bold text-lg">{cat?.name || '分类详情'}</h2>
           </div>
-          
+
           <div className="p-4 space-y-3">
             {catNotes.length === 0 && <div className="text-center text-gray-400 mt-10">该分类下暂无笔记</div>}
             {catNotes.map(n => (
@@ -2526,161 +2325,160 @@ export default function App() {
     }
 
     return (
-       <div className="bg-gray-50 min-h-screen pb-20">
-         <div className="p-4 bg-white shadow-sm flex items-center gap-3 mb-4">
-            <button onClick={() => setView('dashboard')}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
-            <h2 className="font-bold text-lg">分类管理</h2>
-          </div>
-          
-          <div className="px-4">
-            <div className="mb-6">
-              <div className="flex gap-2 mb-3">
-                <input
-                  value={newCatName}
-                  onChange={e => setNewCatName(e.target.value)}
-                  placeholder="新分类名称"
-                  className="flex-1 p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-                <button onClick={addCat} className="bg-indigo-600 text-white px-4 rounded-xl font-bold">添加</button>
-              </div>
+      <div className="bg-gray-50 min-h-screen pb-20">
+        <div className="p-4 bg-white shadow-sm flex items-center gap-3 mb-4">
+          <button onClick={() => setView('dashboard')}><ArrowLeft className="w-6 h-6 text-gray-600" /></button>
+          <h2 className="font-bold text-lg">分类管理</h2>
+        </div>
 
-              {/* 颜色选择器 */}
-              <div className="mb-3">
-                <p className="text-sm text-gray-600 mb-2">选择颜色（可选，不选则随机）</p>
-                <div className="grid grid-cols-8 gap-2">
-                  {[
-                    'bg-red-500',
-                    'bg-blue-500',
-                    'bg-green-500',
-                    'bg-yellow-500',
-                    'bg-purple-500',
-                    'bg-pink-500',
-                    'bg-indigo-500',
-                    'bg-orange-500',
-                    'bg-teal-500',
-                    'bg-cyan-500',
-                    'bg-lime-500',
-                    'bg-emerald-500',
-                    'bg-sky-500',
-                    'bg-violet-500',
-                    'bg-fuchsia-500',
-                    'bg-rose-500',
-                    'bg-amber-500'
-                  ].map((color, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedColor(color.replace('500', '100') + ' ' + color.replace('500', '800'))}
-                      className={`w-8 h-8 rounded-full ${color} ${selectedColor === color.replace('500', '100') + ' ' + color.replace('500', '800') ? 'ring-2 ring-gray-400 ring-offset-2' : 'hover:scale-110'} transition-transform`}
-                    />
-                  ))}
-                </div>
-              </div>
+        <div className="px-4">
+          <div className="mb-6">
+            <div className="flex gap-2 mb-3">
+              <input
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="新分类名称"
+                className="flex-1 p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+              <button onClick={addCat} className="bg-indigo-600 text-white px-4 rounded-xl font-bold">添加</button>
             </div>
 
-            <div className="space-y-3">
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="categories">
-                  {(provided, snapshot) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className={`space-y-3 ${snapshot.isDraggingOver ? 'bg-gray-50 rounded-xl p-2' : ''}`}
-                    >
-                      {sortedCategories.map((c, index) => (
-                        <Draggable key={c.id} draggableId={c.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`bg-white p-4 rounded-xl shadow-sm flex justify-between items-center transition-all ${
-                                snapshot.isDragging ? 'shadow-lg scale-105' : ''
+            {/* 颜色选择器 */}
+            <div className="mb-3">
+              <p className="text-sm text-gray-600 mb-2">选择颜色（可选，不选则随机）</p>
+              <div className="grid grid-cols-8 gap-2">
+                {[
+                  'bg-red-500',
+                  'bg-blue-500',
+                  'bg-green-500',
+                  'bg-yellow-500',
+                  'bg-purple-500',
+                  'bg-pink-500',
+                  'bg-indigo-500',
+                  'bg-orange-500',
+                  'bg-teal-500',
+                  'bg-cyan-500',
+                  'bg-lime-500',
+                  'bg-emerald-500',
+                  'bg-sky-500',
+                  'bg-violet-500',
+                  'bg-fuchsia-500',
+                  'bg-rose-500',
+                  'bg-amber-500'
+                ].map((color, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedColor(color.replace('500', '100') + ' ' + color.replace('500', '800'))}
+                    className={`w-8 h-8 rounded-full ${color} ${selectedColor === color.replace('500', '100') + ' ' + color.replace('500', '800') ? 'ring-2 ring-gray-400 ring-offset-2' : 'hover:scale-110'} transition-transform`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="categories">
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={`space-y-3 ${snapshot.isDraggingOver ? 'bg-gray-50 rounded-xl p-2' : ''}`}
+                  >
+                    {sortedCategories.map((c, index) => (
+                      <Draggable key={c.id} draggableId={c.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`bg-white p-4 rounded-xl shadow-sm flex justify-between items-center transition-all ${snapshot.isDragging ? 'shadow-lg scale-105' : ''
                               }`}
-                            >
-                              <div className="flex items-center gap-3 flex-1">
-                                <div
-                                  {...provided.dragHandleProps}
-                                  className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
-                                >
-                                  <GripVertical className="w-5 h-5" />
-                                </div>
-                                <div className={`w-3 h-3 rounded-full ${c.color.split(' ')[0].replace('bg', 'bg')}`}></div>
-                                <span className="font-medium">{c.name}</span>
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <div
+                                {...provided.dragHandleProps}
+                                className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+                              >
+                                <GripVertical className="w-5 h-5" />
                               </div>
-                              <button onClick={() => deleteCat(c.id)} className="text-gray-300 hover:text-red-500">
-                                <Trash2 className="w-5 h-5" />
-                              </button>
+                              <div className={`w-3 h-3 rounded-full ${c.color.split(' ')[0].replace('bg', 'bg')}`}></div>
+                              <span className="font-medium">{c.name}</span>
                             </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            </div>
-          </div>
-
-          {/* Delete Confirmation Modal */}
-          {deleteConfirm.show && deleteConfirm.category && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95">
-                <div className="text-center">
-                  <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-                    <Trash2 className="w-6 h-6 text-red-600" />
+                            <button onClick={() => deleteCat(c.id)} className="text-gray-300 hover:text-red-500">
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-                  <h3 className="font-bold text-lg text-gray-800 mb-2">确认删除分类</h3>
-                  <p className="text-gray-600 text-sm">
-                    确定要删除分类 <span className="font-semibold text-gray-800">{deleteConfirm.category.name}</span> 吗？
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    此操作不可撤销，删除后无法恢复
-                  </p>
-                </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </div>
+        </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={cancelDelete}
-                    className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition"
-                  >
-                    删除
-                  </button>
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm.show && deleteConfirm.category && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="text-center">
+                <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                  <Trash2 className="w-6 h-6 text-red-600" />
                 </div>
+                <h3 className="font-bold text-lg text-gray-800 mb-2">确认删除分类</h3>
+                <p className="text-gray-600 text-sm">
+                  确定要删除分类 <span className="font-semibold text-gray-800">{deleteConfirm.category.name}</span> 吗？
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  此操作不可撤销，删除后无法恢复
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition"
+                >
+                  删除
+                </button>
               </div>
             </div>
-          )}
-       </div>
+          </div>
+        )}
+      </div>
     );
   };
 
   // --- Navigation Bar ---
   const NavBar = () => (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 text-xs text-gray-500 z-50 pb-safe">
-      <button 
-        onClick={() => setView('dashboard')} 
+      <button
+        onClick={() => setView('dashboard')}
         className={`flex flex-col items-center gap-1 ${view === 'dashboard' ? 'text-indigo-600 font-bold' : ''}`}
       >
         <BookOpen className="w-6 h-6" />
         首页
       </button>
-      
-      <button 
-        onClick={() => setView('add')} 
+
+      <button
+        onClick={() => setView('add')}
         className="flex flex-col items-center gap-1 -mt-6"
       >
         <div className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:scale-105 transition">
           <Plus className="w-6 h-6" />
         </div>
       </button>
-      
-      <button 
-        onClick={() => setView('settings')} 
+
+      <button
+        onClick={() => setView('settings')}
         className={`flex flex-col items-center gap-1 ${view === 'settings' ? 'text-indigo-600 font-bold' : ''}`}
       >
         <Settings className="w-6 h-6" />
