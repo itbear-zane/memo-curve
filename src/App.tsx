@@ -140,7 +140,7 @@ type AppSettings = {
 const DEFAULT_CURVES: CurveProfile[] = [
   { id: 'curve_gaokao_intensive', name: '高考高频冲刺（30次复习）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 21, 24, 27, 30, 33, 37, 41, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180], isDefault: true },
   { id: 'curve_gaokao_layered', name: '高考分层复习', intervals: [1, 2, 3, 4, 5, 7, 9, 11, 13, 15, 18, 21, 24, 27, 30, 34, 38, 42, 46, 50, 55, 60, 66, 72, 78, 84, 91, 98, 105, 112, 120, 128, 136, 145, 154, 163, 172, 181], isDefault: true },
-  { id: 'curve_gaokao_layered', name: '终极密集曲线（适合重点内容）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 64, 67, 70, 73, 76, 79, 82, 85, 88, 91, 95, 99, 103, 107, 111, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180], isDefault: true },
+  { id: 'curve_gaokao_intensive_ultra', name: '终极密集曲线（适合重点内容）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 64, 67, 70, 73, 76, 79, 82, 85, 88, 91, 95, 99, 103, 107, 111, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180], isDefault: true },
   { id: 'curve_english_vocab', name: '英语单词专项', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 166, 168, 170, 172, 174, 176, 178, 180], isDefault: true }
 ];
 
@@ -426,7 +426,7 @@ export default function App() {
                   
                   showToast(`成功导入 ${data.notes.length} 条笔记`);
               }
-          } catch (err) {
+          } catch {
               showToast('文件格式错误', 'error');
           } finally {
               setLoading(false);
@@ -774,10 +774,136 @@ export default function App() {
     );
   };
 
+  // Curve Editor Component
+  const CurveEditor = ({
+    curve,
+    isNew,
+    onSave,
+    onCancel
+  }: {
+    curve: CurveProfile;
+    isNew: boolean;
+    onSave: (curve: CurveProfile) => void;
+    onCancel: () => void;
+  }) => {
+    const [name, setName] = useState(curve.name);
+    const [intervals, setIntervals] = useState(curve.intervals.join(', '));
+    const [errors, setErrors] = useState<string[]>([]);
+
+    const validate = () => {
+      const newErrors: string[] = [];
+
+      if (!name.trim()) {
+        newErrors.push('曲线名称不能为空');
+      }
+
+      const parsedIntervals = intervals
+        .split(',')
+        .map(n => parseFloat(n.trim()))
+        .filter(n => !isNaN(n) && n > 0);
+
+      if (parsedIntervals.length === 0) {
+        newErrors.push('请输入有效的间隔天数');
+      }
+
+      if (parsedIntervals.some(n => n <= 0)) {
+        newErrors.push('间隔天数必须大于0');
+      }
+
+      setErrors(newErrors);
+      return newErrors.length === 0;
+    };
+
+    const handleSave = () => {
+      if (!validate()) return;
+
+      const parsedIntervals = intervals
+        .split(',')
+        .map(n => parseFloat(n.trim()))
+        .filter(n => !isNaN(n) && n > 0);
+
+      const updatedCurve: CurveProfile = {
+        ...curve,
+        name: name.trim(),
+        intervals: parsedIntervals
+      };
+
+      onSave(updatedCurve);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-lg">
+              {isNew ? '新建遗忘曲线' : '编辑遗忘曲线'}
+            </h3>
+            <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {errors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              {errors.map((error, idx) => (
+                <div key={idx} className="text-red-600 text-sm flex items-center gap-1">
+                  • {error}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-gray-500 mb-1">曲线名称</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="例如：英语单词专项"
+              className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-500 mb-1">
+              复习间隔 (天)
+              <span className="text-xs text-gray-400 ml-1">用逗号分隔</span>
+            </label>
+            <textarea
+              value={intervals}
+              onChange={e => setIntervals(e.target.value)}
+              placeholder="例如：1, 2, 3, 5, 8, 13, 21, 34"
+              className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500 h-24 resize-none font-mono text-sm"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              输入复习间隔天数，用逗号分隔。例如：第1天、第2天、第3天、第5天...
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-3 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const SettingsView = () => {
     const [editedCurves, setEditedCurves] = useState<CurveProfile[]>(settings.curveProfiles);
     const [isDirty, setIsDirty] = useState(false);
     const [quota, setQuota] = useState<{usage: number, quota: number} | null>(null);
+    const [editingCurve, setEditingCurve] = useState<CurveProfile | null>(null);
+    const [isNewCurve, setIsNewCurve] = useState(false);
 
     useEffect(() => {
         if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -787,21 +913,23 @@ export default function App() {
         }
     }, []);
 
-    const updateCurve = (index: number, field: keyof CurveProfile, value: any) => {
-      const newCurves = [...editedCurves];
-      if (field === 'intervals') {
-        const arr = value.split(',').map((n: string) => parseFloat(n.trim())).filter((n: number) => !isNaN(n));
-        newCurves[index] = { ...newCurves[index], intervals: arr };
-      } else {
-        newCurves[index] = { ...newCurves[index], [field]: value };
-      }
-      setEditedCurves(newCurves);
-      setIsDirty(true);
-    };
 
     const addCurve = () => {
-      setEditedCurves([...editedCurves, { id: generateId(), name: '新曲线', intervals: [1, 2, 3, 5], isDefault: false }]);
-      setIsDirty(true);
+      // 确保新曲线有唯一的ID，避免与默认曲线冲突
+      let newId: string;
+      do {
+        newId = generateId();
+      } while (editedCurves.some(curve => curve.id === newId));
+
+      const newCurve: CurveProfile = {
+        id: newId,
+        name: '新曲线',
+        intervals: [1, 2, 3, 5],
+        isDefault: false
+      };
+
+      setEditingCurve(newCurve);
+      setIsNewCurve(true);
     };
 
     const deleteCurve = (index: number) => {
@@ -889,12 +1017,16 @@ export default function App() {
               {editedCurves.map((curve, idx) => (
                 <div key={curve.id} className="border-b pb-4 last:border-0 last:pb-0">
                   <div className="flex justify-between items-center mb-2">
-                    <input 
-                      value={curve.name}
-                      onChange={e => updateCurve(idx, 'name', e.target.value)}
-                      className="font-bold text-sm bg-transparent border-none focus:ring-0 p-0 w-full"
-                      placeholder="曲线名称"
-                    />
+                    <div
+                      className="font-bold text-sm cursor-pointer hover:text-indigo-600 flex items-center gap-1"
+                      onClick={() => {
+                        setEditingCurve(curve);
+                        setIsNewCurve(false);
+                      }}
+                    >
+                      {curve.name}
+                      <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                     {!curve.isDefault && (
                       <button onClick={() => deleteCurve(idx)} className="text-gray-400 hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
@@ -902,11 +1034,16 @@ export default function App() {
                     )}
                   </div>
                   <div className="text-xs text-gray-500 mb-1">间隔 (天):</div>
-                  <input 
-                    value={curve.intervals.join(', ')}
-                    onChange={e => updateCurve(idx, 'intervals', e.target.value)}
-                    className="w-full p-2 bg-gray-50 rounded-lg font-mono text-xs border-none"
-                  />
+                  <div
+                    className="w-full p-2 bg-gray-50 rounded-lg font-mono text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      setEditingCurve(curve);
+                      setIsNewCurve(false);
+                    }}
+                    title="点击编辑间隔"
+                  >
+                    {curve.intervals.join(', ')}
+                  </div>
                 </div>
               ))}
             </div>
@@ -947,6 +1084,43 @@ export default function App() {
             </button>
           </section>
         </div>
+
+        {/* Curve Editor Modal */}
+        {editingCurve && (
+          <CurveEditor
+            curve={editingCurve}
+            isNew={isNewCurve}
+            onSave={(updatedCurve) => {
+              let newCurves: CurveProfile[];
+
+              if (isNewCurve) {
+                // Add new curve
+                newCurves = [...editedCurves, updatedCurve];
+              } else {
+                // Update existing curve
+                const index = editedCurves.findIndex(c => c.id === updatedCurve.id);
+                if (index !== -1) {
+                  newCurves = [...editedCurves];
+                  newCurves[index] = updatedCurve;
+                } else {
+                  newCurves = editedCurves;
+                }
+              }
+
+              // Update state and save to database immediately
+              setEditedCurves(newCurves);
+              saveSettingsToDB({ ...settings, curveProfiles: newCurves });
+              setIsDirty(false);
+              setEditingCurve(null);
+              setIsNewCurve(false);
+              showToast(isNewCurve ? '曲线已创建' : '曲线已更新');
+            }}
+            onCancel={() => {
+              setEditingCurve(null);
+              setIsNewCurve(false);
+            }}
+          />
+        )}
       </div>
     );
   };
@@ -976,7 +1150,7 @@ export default function App() {
                 const compressedBase64 = await compressImage(file);
                 setImages(prev => [...prev, compressedBase64]);
               }
-          } catch (e) {
+          } catch {
               showToast('图片处理失败', 'error');
           } finally {
               setIsProcessingImg(false);
