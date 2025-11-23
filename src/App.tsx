@@ -246,6 +246,7 @@ export default function App() {
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
 
   // --- Initialization & Migration Logic ---
@@ -1241,7 +1242,7 @@ export default function App() {
     );
   };
 
-  const AddNote = () => {
+  const AddNote = ({ setPreviewImage }: { setPreviewImage: (img: string | null) => void }) => {
     // Load form state from sessionStorage if available
     const savedFormState = sessionStorage.getItem('addNoteFormState');
     const initialFormState = savedFormState ? JSON.parse(savedFormState) : {
@@ -1363,10 +1364,15 @@ export default function App() {
             <div className="flex flex-wrap gap-2">
               {images.map((img, idx) => (
                 <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                  <img src={img} className="w-full h-full object-cover" />
+                  <img
+                    src={img}
+                    className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition"
+                    onClick={() => setPreviewImage(img)}
+                    alt={`图片 ${idx + 1}`}
+                  />
                   <button
                     onClick={() => setImages(images.filter((_, i) => i !== idx))}
-                    className="absolute top-0 right-0 bg-black/50 text-white p-0.5"
+                    className="absolute top-0 right-0 bg-black/50 text-white p-0.5 hover:bg-black/70 transition"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1403,7 +1409,7 @@ export default function App() {
     );
   };
 
-  const ReviewSession = () => {
+  const ReviewSession = ({ setPreviewImage }: { setPreviewImage: (img: string | null) => void }) => {
     const [showAnswer, setShowAnswer] = useState(false);
     const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
     const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
@@ -1594,7 +1600,13 @@ export default function App() {
                   {note.images.length > 0 && (
                     <div className="mt-4 grid gap-2">
                       {note.images.map((img, i) => (
-                        <img key={i} src={img} className="rounded-lg w-full object-cover" alt="note attachment" />
+                        <img
+                          key={i}
+                          src={img}
+                          className="rounded-lg w-full object-cover cursor-pointer hover:opacity-80 transition"
+                          alt="note attachment"
+                          onClick={() => setPreviewImage(img)}
+                        />
                       ))}
                     </div>
                   )}
@@ -2202,14 +2214,14 @@ export default function App() {
     );
   };
 
-  const CategoryManager = () => {
+  const CategoryManager = ({ setPreviewImage }: { setPreviewImage: (img: string | null) => void }) => {
     const [editingNote, setEditingNote] = useState<Note | null>(null);
     const [newCatName, setNewCatName] = useState('');
     const [selectedColor, setSelectedColor] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; category: Category | null }>({ show: false, category: null });
 
     // Sub-component for editing a note
-    const NoteEditor = ({ note, onClose }: { note: Note, onClose: () => void }) => {
+    const NoteEditor = ({ note, onClose, setPreviewImage }: { note: Note, onClose: () => void, setPreviewImage: (img: string | null) => void }) => {
       const [title, setTitle] = useState(note.title);
       const [content, setContent] = useState(note.content);
       const [curveId, setCurveId] = useState(note.curveId);
@@ -2277,7 +2289,12 @@ export default function App() {
               <div className="flex flex-wrap gap-2">
                 {images.map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                    <img src={img} className="w-full h-full object-cover" alt="note image" />
+                    <img
+                      src={img}
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition"
+                      alt="note image"
+                      onClick={() => setPreviewImage(img)}
+                    />
                     <button
                       onClick={() => setImages(images.filter((_, i) => i !== idx))}
                       className="absolute top-0 right-0 bg-black/50 text-white p-0.5"
@@ -2334,7 +2351,7 @@ export default function App() {
     };
 
     if (editingNote) {
-      return <NoteEditor note={editingNote} onClose={() => setEditingNote(null)} />;
+      return <NoteEditor note={editingNote} onClose={() => setEditingNote(null)} setPreviewImage={setPreviewImage} />;
     }
 
     const addCat = async () => {
@@ -2476,7 +2493,7 @@ export default function App() {
                   {n.images.length > 0 && (
                     <div className="flex gap-1 mt-2">
                       {n.images.slice(0, 3).map((img, idx) => (
-                        <div key={idx} className="w-8 h-8 rounded overflow-hidden border">
+                        <div key={idx} className="w-8 h-8 rounded overflow-hidden border cursor-pointer hover:opacity-80 transition" onClick={() => setPreviewImage(img)}>
                           <img src={img} className="w-full h-full object-cover" alt="thumbnail" />
                         </div>
                       ))}
@@ -2682,13 +2699,28 @@ export default function App() {
       )}
 
       {view === 'dashboard' && <Dashboard />}
-      {view === 'add' && <AddNote />}
-      {view === 'review' && <ReviewSession />}
+      {view === 'add' && <AddNote setPreviewImage={setPreviewImage} />}
+      {view === 'review' && <ReviewSession setPreviewImage={setPreviewImage} />}
       {view === 'settings' && <SettingsView />}
-      {view === 'category' && <CategoryManager />}
+      {view === 'category' && <CategoryManager setPreviewImage={setPreviewImage} />}
 
       {/* Analytics Overview Modal */}
       {showAnalytics && <AnalyticsOverview />}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70]" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img src={previewImage} className="max-w-full max-h-full object-contain" alt="预览图片" />
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Show Nav bar only on main screens */}
       {(view === 'dashboard' || view === 'settings' || (view === 'category' && !activeCategory)) && <NavBar />}
