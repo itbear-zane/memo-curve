@@ -16,14 +16,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist', // 默认输出到 dist，部署脚本会将其复制到 public
       sourcemap: isDevelopment, // 开发环境生成 sourcemap 便于调试
-      rollupOptions: {
-        output: {
-          manualChunks: mode === 'analyze' ? {
-            vendor: ['react', 'react-dom'],
-            ui: ['lucide-react']
-          } : undefined
-        } as any
-      }
     },
     server: {
       port: 3000,

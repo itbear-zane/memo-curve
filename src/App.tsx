@@ -14,7 +14,8 @@ import {
   Clock,
   HardDrive,
   Download,
-  Upload
+  Upload,
+  Eye
 } from 'lucide-react';
 
 // --- 1. IndexedDB Utility Layer (No external deps) ---
@@ -32,15 +33,15 @@ const dbHelper = {
   init() {
     return new Promise<void>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+        const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NOTES)) db.createObjectStore(STORE_NOTES, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(STORE_CATS)) db.createObjectStore(STORE_CATS, { keyPath: 'id' });
         // Settings is a singleton object, we'll use a fixed key 'appSettings' or just store/put
         if (!db.objectStoreNames.contains(STORE_SETTINGS)) db.createObjectStore(STORE_SETTINGS);
       };
-      request.onsuccess = (event: any) => {
-        dbHelper.db = event.target.result;
+      request.onsuccess = (event: Event) => {
+        dbHelper.db = (event.target as IDBOpenDBRequest).result;
         // Try to ask for persistent storage
         if (navigator.storage && navigator.storage.persist) {
           navigator.storage.persist().then(granted => {
@@ -73,7 +74,7 @@ const dbHelper = {
     });
   },
 
-  async put(storeName: string, data: any, key?: string) {
+  async put(storeName: string, data: unknown, key?: string) {
     return new Promise<void>((resolve, reject) => {
       if (!dbHelper.db) return reject('DB not init');
       const transaction = dbHelper.db.transaction([storeName], 'readwrite');
@@ -138,7 +139,7 @@ type AppSettings = {
 };
 
 const DEFAULT_CURVES: CurveProfile[] = [
-  { id: 'curve_gaokao_intensive', name: '高考高频冲刺（30次复习）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 21, 24, 27, 30, 33, 37, 41, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180], isDefault: true },
+  { id: 'curve_gaokao_intensive', name: '高考高频冲刺（30次复习）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 21, 24, 27, 30, 33, 37, 41, 45, 50, 55, 60, 70, 80, 90, 100], isDefault: true },
   { id: 'curve_gaokao_layered', name: '高考分层复习', intervals: [1, 2, 3, 4, 5, 7, 9, 11, 13, 15, 18, 21, 24, 27, 30, 34, 38, 42, 46, 50, 55, 60, 66, 72, 78, 84, 91, 98, 105, 112, 120, 128, 136, 145, 154, 163, 172, 181], isDefault: true },
   { id: 'curve_gaokao_intensive_ultra', name: '终极密集曲线（适合重点内容）', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 64, 67, 70, 73, 76, 79, 82, 85, 88, 91, 95, 99, 103, 107, 111, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180], isDefault: true },
   { id: 'curve_english_vocab', name: '英语单词专项', intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 166, 168, 170, 172, 174, 176, 178, 180], isDefault: true }
@@ -774,6 +775,199 @@ export default function App() {
     );
   };
 
+  // Curve Visualization Component
+  const CurveVisualization = ({
+    curve,
+    onClose
+  }: {
+    curve: CurveProfile;
+    onClose: () => void;
+  }) => {
+    const [showDetails, setShowDetails] = useState(false);
+
+    // Generate data points for the review curve visualization
+    // This shows the actual review schedule (when reviews happen)
+    const generateReviewCurveData = () => {
+      const data = [];
+
+      // Add initial point (day 0, first review)
+      data.push({
+        reviewNumber: 0,
+        cumulativeDays: 0,
+        interval: 0
+      });
+
+      // Generate points for each review interval
+      for (let i = 0; i < curve.intervals.length; i++) {
+        const cumulativeDays = curve.intervals[i];
+        const interval = i === 0 ? cumulativeDays : cumulativeDays - curve.intervals[i - 1];
+
+        data.push({
+          reviewNumber: i + 1,
+          cumulativeDays,
+          interval
+        });
+      }
+
+      return data;
+    };
+
+    const curveData = generateReviewCurveData();
+    const maxCumulativeDays = Math.max(...curveData.map(d => d.cumulativeDays));
+    const maxReviewNumber = curveData.length - 1;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+          {/* Header */}
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="font-bold text-lg">{curve.name} - 复习曲线</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Chart Area */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {/* Chart Container */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <div className="text-center text-sm text-gray-500 mb-2">
+                复习时间点分布
+              </div>
+
+              {/* Chart */}
+              <div className="relative h-48 bg-white rounded-lg border border-gray-200 p-2">
+                {/* Y-axis labels (Review Numbers) */}
+                <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-400">
+                  <span>第{maxReviewNumber}次</span>
+                  <span>第{Math.floor(maxReviewNumber * 3/4)}次</span>
+                  <span>第{Math.floor(maxReviewNumber / 2)}次</span>
+                  <span>第{Math.floor(maxReviewNumber / 4)}次</span>
+                  <span>第0次</span>
+                </div>
+
+                {/* X-axis labels (Days) */}
+                <div className="absolute left-8 right-0 bottom-0 h-6 flex justify-between text-xs text-gray-400 px-2">
+                  <span>0天</span>
+                  <span>{Math.floor(maxCumulativeDays / 4)}天</span>
+                  <span>{Math.floor(maxCumulativeDays / 2)}天</span>
+                  <span>{Math.floor(maxCumulativeDays * 3 / 4)}天</span>
+                  <span>{maxCumulativeDays}天</span>
+                </div>
+
+                {/* Chart content */}
+                <div className="absolute left-8 right-2 top-2 bottom-6">
+                  {/* Grid lines */}
+                  <div className="absolute inset-0 grid grid-cols-4 grid-rows-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="border-r border-gray-100 last:border-r-0" />
+                    ))}
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="border-b border-gray-100 last:border-b-0" />
+                    ))}
+                  </div>
+
+                  {/* Review points */}
+                  <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                    {/* Vertical lines for each review point */}
+                    {curveData.map((point, index) => (
+                      <line
+                        key={index}
+                        x1={(point.cumulativeDays / maxCumulativeDays) * 100}
+                        y1="0"
+                        x2={(point.cumulativeDays / maxCumulativeDays) * 100}
+                        y2="100"
+                        stroke="#e5e7eb"
+                        strokeWidth="1"
+                        strokeDasharray="2,2"
+                      />
+                    ))}
+
+                    {/* Review points */}
+                    {curveData.map((point, index) => (
+                      <circle
+                        key={index}
+                        cx={(point.cumulativeDays / maxCumulativeDays) * 100}
+                        cy={100 - ((point.reviewNumber / maxReviewNumber) * 100)}
+                        r="3"
+                        fill="#4f46e5"
+                        className="cursor-pointer hover:r-4 transition-all"
+                      />
+                    ))}
+
+                    {/* Connecting lines between review points */}
+                    <path
+                      d={`M 0,100 ${curveData.map((point) =>
+                        `L ${(point.cumulativeDays / maxCumulativeDays) * 100},${100 - ((point.reviewNumber / maxReviewNumber) * 100)}`
+                      ).join(' ')}`}
+                      fill="none"
+                      stroke="#4f46e5"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="text-center text-xs text-gray-500 mt-2">
+                从第一天开始的天数 (X轴) vs 复习次数 (Y轴)
+              </div>
+            </div>
+
+            {/* Interval Details */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-sm text-gray-700">复习间隔详情</h4>
+                <button
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="text-xs text-indigo-600 flex items-center gap-1"
+                >
+                  <Eye className="w-3 h-3" />
+                  {showDetails ? '隐藏详情' : '显示详情'}
+                </button>
+              </div>
+
+              {showDetails && (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                  {curveData.slice(1).map((point, index) => (
+                    <div key={index} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">
+                        第{point.reviewNumber}次复习
+                      </span>
+                      <div className="flex gap-4">
+                        <span className="text-gray-500">
+                          第{point.cumulativeDays}天
+                        </span>
+                        <span className="text-indigo-600 font-medium">
+                          间隔: {point.interval}天
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t">
+            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+              <div className="text-center">
+                <div className="font-bold text-gray-800">{curve.intervals.length}</div>
+                <div>复习次数</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-gray-800">{maxCumulativeDays}</div>
+                <div>总周期</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Curve Editor Component
   const CurveEditor = ({
     curve,
@@ -904,6 +1098,7 @@ export default function App() {
     const [quota, setQuota] = useState<{usage: number, quota: number} | null>(null);
     const [editingCurve, setEditingCurve] = useState<CurveProfile | null>(null);
     const [isNewCurve, setIsNewCurve] = useState(false);
+    const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
 
     useEffect(() => {
         if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -1027,22 +1222,32 @@ export default function App() {
                       {curve.name}
                       <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    {!curve.isDefault && (
-                      <button onClick={() => deleteCurve(idx)} className="text-gray-400 hover:text-red-500">
-                        <Trash2 className="w-4 h-4" />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setViewingCurve(curve)}
+                        className="text-gray-400 hover:text-indigo-500"
+                        title="查看曲线可视化"
+                      >
+                        <Eye className="w-4 h-4" />
                       </button>
-                    )}
+                      {!curve.isDefault && (
+                        <button onClick={() => deleteCurve(idx)} className="text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500 mb-1">间隔 (天):</div>
                   <div
-                    className="w-full p-2 bg-gray-50 rounded-lg font-mono text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="w-full p-2 bg-gray-50 rounded-lg font-mono text-xs cursor-pointer hover:bg-gray-100 transition-colors max-h-16 overflow-y-auto"
                     onClick={() => {
                       setEditingCurve(curve);
                       setIsNewCurve(false);
                     }}
                     title="点击编辑间隔"
                   >
-                    {curve.intervals.join(', ')}
+                    {curve.intervals.length <= 10 ? curve.intervals.join(', ') :
+                      `${curve.intervals.slice(0, 8).join(', ')}, ... 共${curve.intervals.length}个间隔`}
                   </div>
                 </div>
               ))}
@@ -1119,6 +1324,14 @@ export default function App() {
               setEditingCurve(null);
               setIsNewCurve(false);
             }}
+          />
+        )}
+
+        {/* Curve Visualization Modal */}
+        {viewingCurve && (
+          <CurveVisualization
+            curve={viewingCurve}
+            onClose={() => setViewingCurve(null)}
           />
         )}
       </div>
