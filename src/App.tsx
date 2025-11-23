@@ -15,9 +15,11 @@ import {
   HardDrive,
   Download,
   Upload,
-  Eye
+  Eye,
+  GripVertical
 } from 'lucide-react';
 import { isBefore, endOfDay, isToday } from 'date-fns';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 // --- 1. IndexedDB Utility Layer (No external deps) ---
 
@@ -132,6 +134,7 @@ type Category = {
   id: string;
   name: string;
   color: string;
+  sortOrder?: number; // 新增排序字段
 };
 
 type AppSettings = {
@@ -147,18 +150,18 @@ const DEFAULT_CURVES: CurveProfile[] = [
 ];
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat_1', name: '英语单词', color: 'bg-blue-100 text-blue-800' },
-  { id: 'cat_chinese', name: '语文', color: 'bg-red-100 text-red-800' },
-  { id: 'cat_math', name: '数学', color: 'bg-sky-100 text-sky-800' },
-  { id: 'cat_english', name: '英语', color: 'bg-green-100 text-green-800' },
-  { id: 'cat_physics', name: '物理', color: 'bg-purple-100 text-purple-800' },
-  { id: 'cat_chemistry', name: '化学', color: 'bg-yellow-100 text-yellow-800' },
-  { id: 'cat_biology', name: '生物', color: 'bg-pink-100 text-pink-800' },
+  { id: 'cat_1', name: '英语单词', color: 'bg-blue-100 text-blue-800', sortOrder: 0 },
+  { id: 'cat_chinese', name: '语文', color: 'bg-red-100 text-red-800', sortOrder: 1 },
+  { id: 'cat_math', name: '数学', color: 'bg-sky-100 text-sky-800', sortOrder: 2 },
+  { id: 'cat_english', name: '英语', color: 'bg-green-100 text-green-800', sortOrder: 3 },
+  { id: 'cat_physics', name: '物理', color: 'bg-purple-100 text-purple-800', sortOrder: 4 },
+  { id: 'cat_chemistry', name: '化学', color: 'bg-yellow-100 text-yellow-800', sortOrder: 5 },
+  { id: 'cat_biology', name: '生物', color: 'bg-pink-100 text-pink-800', sortOrder: 6 },
 ];
 
 // --- Helper Functions ---
 
-const generateId = () => Math.random().toString(36).substr(2, 9);
+const generateId = () => Math.random().toString(36).substring(2, 11);
 
 const getRelativeTime = (timestamp: number) => {
   const diff = timestamp - Date.now();
@@ -272,13 +275,24 @@ export default function App() {
         } else if (dbCats.length === 0) {
             // If no categories exist in DB, save default categories
             console.log("Saving default categories to IndexedDB...");
-            for (const c of DEFAULT_CATEGORIES) await dbHelper.put(STORE_CATS, c);
-            setCategories(DEFAULT_CATEGORIES);
+            const categoriesWithSortOrder = DEFAULT_CATEGORIES.map((cat, index) => ({
+                ...cat,
+                sortOrder: index
+            }));
+            for (const c of categoriesWithSortOrder) await dbHelper.put(STORE_CATS, c);
+            setCategories(categoriesWithSortOrder);
             if (dbSettings) setSettings(prev => ({...prev, ...dbSettings}));
         } else {
-            // Normal Load
+            // Normal Load - 为现有分类添加排序顺序（如果没有的话）
             setNotes(dbNotes);
-            if (dbCats.length > 0) setCategories(dbCats);
+            if (dbCats.length > 0) {
+                // 检查是否需要为现有分类添加排序顺序
+                const categoriesWithSortOrder = dbCats.map((cat, index) => ({
+                    ...cat,
+                    sortOrder: cat.sortOrder ?? index
+                }));
+                setCategories(categoriesWithSortOrder);
+            }
             if (dbSettings) setSettings(prev => ({...prev, ...dbSettings}));
         }
       } catch (e) {
@@ -494,6 +508,9 @@ export default function App() {
   const Dashboard = () => {
     const dueCount = dueNotes.length;
 
+    // 获取排序后的分类列表
+    const sortedCategories = [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
     return (
       <div className="space-y-6 pb-20">
         {/* Header */}
@@ -506,13 +523,13 @@ export default function App() {
               <Settings className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="bg-indigo-700/50 p-4 rounded-2xl flex items-center justify-between backdrop-blur-sm">
             <div>
               <p className="text-indigo-200 text-sm">待复习</p>
               <p className="text-3xl font-bold">{dueCount}</p>
             </div>
-            <button 
+            <button
               onClick={() => {
                 if (dueCount > 0) {
                   setCurrentReviewIndex(0);
@@ -535,11 +552,11 @@ export default function App() {
             <button onClick={() => setView('category')} className="text-indigo-600 text-sm font-medium">管理</button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {categories.map(cat => {
+            {sortedCategories.map(cat => {
               const count = notes.filter(n => n.categoryId === cat.id).length;
               return (
-                <div 
-                  key={cat.id} 
+                <div
+                  key={cat.id}
                   onClick={() => { setActiveCategory(cat.id); setView('category'); }}
                   className={`${cat.color} p-4 rounded-xl cursor-pointer hover:opacity-90 transition shadow-sm`}
                 >
@@ -1698,7 +1715,12 @@ export default function App() {
         'bg-amber-100 text-amber-800'
       ];
       const color = selectedColor || colors[Math.floor(Math.random() * colors.length)];
-      const newCat = { id: generateId(), name: newCatName, color };
+      const newCat = {
+        id: generateId(),
+        name: newCatName,
+        color,
+        sortOrder: categories.length // 新分类添加到最后
+      };
 
       await dbHelper.put(STORE_CATS, newCat);
       setCategories([...categories, newCat]);
@@ -1731,6 +1753,42 @@ export default function App() {
     const cancelDelete = () => {
       setDeleteConfirm({ show: false, category: null });
     };
+
+    // 处理拖拽排序
+    const handleDragEnd = (result: { destination?: { index: number } | null; source: { index: number } }) => {
+      if (!result.destination) return;
+
+      const { source, destination } = result;
+
+      // 如果拖拽到相同位置，不做任何操作
+      if (source.index === destination.index) return;
+
+      // 获取排序后的分类列表
+      const sortedCategories = [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+      // 重新排序
+      const [removed] = sortedCategories.splice(source.index, 1);
+      sortedCategories.splice(destination.index, 0, removed);
+
+      // 更新排序顺序
+      const updatedCategories = sortedCategories.map((cat, index) => ({
+        ...cat,
+        sortOrder: index
+      }));
+
+      // 批量保存到数据库
+      Promise.all(updatedCategories.map(cat => dbHelper.put(STORE_CATS, cat)))
+        .then(() => {
+          setCategories(updatedCategories);
+          showToast('分类排序已更新');
+        })
+        .catch(() => {
+          showToast('分类排序更新失败', 'error');
+        });
+    };
+
+    // 获取排序后的分类列表
+    const sortedCategories = [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
     // Category Detail View
     if (activeCategory) {
@@ -1846,17 +1904,46 @@ export default function App() {
             </div>
 
             <div className="space-y-3">
-              {categories.map(c => (
-                <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${c.color.split(' ')[0].replace('bg', 'bg')}`}></div>
-                    <span className="font-medium">{c.name}</span>
-                  </div>
-                  <button onClick={() => deleteCat(c.id)} className="text-gray-300 hover:text-red-500">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="categories">
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`space-y-3 ${snapshot.isDraggingOver ? 'bg-gray-50 rounded-xl p-2' : ''}`}
+                    >
+                      {sortedCategories.map((c, index) => (
+                        <Draggable key={c.id} draggableId={c.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`bg-white p-4 rounded-xl shadow-sm flex justify-between items-center transition-all ${
+                                snapshot.isDragging ? 'shadow-lg scale-105' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+                                >
+                                  <GripVertical className="w-5 h-5" />
+                                </div>
+                                <div className={`w-3 h-3 rounded-full ${c.color.split(' ')[0].replace('bg', 'bg')}`}></div>
+                                <span className="font-medium">{c.name}</span>
+                              </div>
+                              <button onClick={() => deleteCat(c.id)} className="text-gray-300 hover:text-red-500">
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
           </div>
 
