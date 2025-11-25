@@ -16,10 +16,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     enableNotifications: false,
     aiConfig: {
       provider: 'deepseek',
-      baseURL: 'https://api.deepseek.com',
-      apiKey: '',
-      model: 'deepseek-chat',
       enabled: false,
+      deepseek: {
+        baseURL: 'https://api.deepseek.com',
+        apiKey: '',
+        model: 'deepseek-chat',
+      },
+      openai: {
+        baseURL: 'https://api.openai.com',
+        apiKey: '',
+        model: 'gpt-4o-mini',
+      },
+      openrouter: {
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: '',
+        model: 'openai/gpt-4o',
+        siteUrl: '',
+        siteName: '',
+      },
+      custom: {
+        baseURL: '',
+        apiKey: '',
+        model: '',
+      },
     },
   });
 
@@ -79,7 +98,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             }));
             setCategories(categoriesWithSortOrder);
           }
-          if (dbSettings) setSettings((prev: AppSettings) => ({ ...prev, ...dbSettings }));
+          if (dbSettings) {
+            // 迁移旧的 AI 配置格式到新格式
+            let migratedSettings = { ...dbSettings };
+            if (dbSettings.aiConfig && 'baseURL' in dbSettings.aiConfig) {
+              // 旧格式，需要迁移
+              const oldConfig = dbSettings.aiConfig as any;
+              migratedSettings = {
+                ...dbSettings,
+                aiConfig: {
+                  provider: oldConfig.provider || 'deepseek',
+                  enabled: oldConfig.enabled || false,
+                  deepseek: {
+                    baseURL: oldConfig.provider === 'deepseek' ? (oldConfig.baseURL || 'https://api.deepseek.com') : 'https://api.deepseek.com',
+                    apiKey: oldConfig.provider === 'deepseek' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'deepseek' ? (oldConfig.model || 'deepseek-chat') : 'deepseek-chat',
+                  },
+                  openai: {
+                    baseURL: oldConfig.provider === 'openai' ? (oldConfig.baseURL || 'https://api.openai.com') : 'https://api.openai.com',
+                    apiKey: oldConfig.provider === 'openai' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'openai' ? (oldConfig.model || 'gpt-4o-mini') : 'gpt-4o-mini',
+                  },
+                  openrouter: {
+                    baseURL: oldConfig.provider === 'openrouter' ? (oldConfig.baseURL || 'https://openrouter.ai/api/v1') : 'https://openrouter.ai/api/v1',
+                    apiKey: oldConfig.provider === 'openrouter' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'openrouter' ? (oldConfig.model || 'openai/gpt-4o') : 'openai/gpt-4o',
+                    siteUrl: oldConfig.siteUrl || '',
+                    siteName: oldConfig.siteName || '',
+                  },
+                  custom: {
+                    baseURL: oldConfig.provider === 'custom' ? (oldConfig.baseURL || '') : '',
+                    apiKey: oldConfig.provider === 'custom' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'custom' ? (oldConfig.model || '') : '',
+                  },
+                }
+              };
+              // 保存迁移后的配置
+              await dbHelper.put(STORE_SETTINGS, migratedSettings, 'config');
+              console.log('AI 配置已迁移到新格式');
+            }
+            setSettings((prev: AppSettings) => ({ ...prev, ...migratedSettings }));
+          }
         }
       } catch (e) {
         console.error("DB Init Failed", e);

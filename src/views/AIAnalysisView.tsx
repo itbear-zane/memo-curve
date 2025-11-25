@@ -31,28 +31,45 @@ const AIAnalysisView = () => {
         throw new Error('请先在设置中启用 AI 分析功能');
       }
 
+      // 获取当前提供商的配置
+      const currentConfig = aiConfig[aiConfig.provider];
+
       // Check if API key is configured
-      if (!aiConfig.apiKey || aiConfig.apiKey.trim() === '') {
+      if (!currentConfig.apiKey || currentConfig.apiKey.trim() === '') {
         throw new Error('请先在设置中配置 API 密钥');
       }
 
       // Check if base URL is configured
-      if (!aiConfig.baseURL || aiConfig.baseURL.trim() === '') {
+      if (!currentConfig.baseURL || currentConfig.baseURL.trim() === '') {
         throw new Error('请先在设置中配置 API URL');
       }
 
       // Create client with user configuration
-      const client = new OpenAI({
-        baseURL: aiConfig.baseURL,
-        apiKey: aiConfig.apiKey,
+      const clientConfig: any = {
+        baseURL: currentConfig.baseURL,
+        apiKey: currentConfig.apiKey,
         dangerouslyAllowBrowser: true, // Required for browser environment
-      });
+      };
+
+      // Add OpenRouter specific headers
+      if (aiConfig.provider === 'openrouter') {
+        const openrouterConfig = aiConfig.openrouter as any;
+        clientConfig.defaultHeaders = {};
+        if (openrouterConfig.siteUrl) {
+          clientConfig.defaultHeaders['HTTP-Referer'] = openrouterConfig.siteUrl;
+        }
+        if (openrouterConfig.siteName) {
+          clientConfig.defaultHeaders['X-Title'] = openrouterConfig.siteName;
+        }
+      }
+
+      const client = new OpenAI(clientConfig);
 
       setIsStreaming(true);
 
       // Create the streaming completion
       const stream = await client.chat.completions.create({
-        model: aiConfig.model || 'deepseek-chat',
+        model: currentConfig.model || 'deepseek-chat',
         messages: [
           {
             role: 'system',

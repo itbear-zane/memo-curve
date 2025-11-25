@@ -33,11 +33,31 @@ export interface CurveProfile {
     curveProfiles: CurveProfile[];
     enableNotifications: boolean;
     aiConfig: {
-      provider: 'deepseek' | 'openai' | 'custom';
-      baseURL: string;
-      apiKey: string;
-      model: string;
+      provider: 'deepseek' | 'openai' | 'openrouter' | 'custom';
       enabled: boolean;
+      // 每个提供商独立的配置
+      deepseek: {
+        baseURL: string;
+        apiKey: string;
+        model: string;
+      };
+      openai: {
+        baseURL: string;
+        apiKey: string;
+        model: string;
+      };
+      openrouter: {
+        baseURL: string;
+        apiKey: string;
+        model: string;
+        siteUrl?: string;
+        siteName?: string;
+      };
+      custom: {
+        baseURL: string;
+        apiKey: string;
+        model: string;
+      };
     };
   }
   

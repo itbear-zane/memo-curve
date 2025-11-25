@@ -16,6 +16,11 @@ const SettingsView = () => {
   const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
   const [aiConfig, setAiConfig] = useState(settings.aiConfig);
 
+  // 获取当前提供商的配置
+  const getCurrentProviderConfig = () => {
+    return aiConfig[aiConfig.provider];
+  };
+
   useEffect(() => {
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       navigator.storage.estimate().then(({ usage, quota }) => {
@@ -225,30 +230,8 @@ const SettingsView = () => {
                   <select
                     value={aiConfig.provider}
                     onChange={(e) => {
-                      const provider = e.target.value as 'deepseek' | 'openai' | 'custom';
-                      // 根据提供商自动设置默认配置
-                      let newAiConfig = { ...aiConfig, provider };
-
-                      if (provider === 'deepseek') {
-                        newAiConfig = {
-                          ...newAiConfig,
-                          baseURL: 'https://api.deepseek.com',
-                          model: 'deepseek-chat'
-                        };
-                      } else if (provider === 'openai') {
-                        newAiConfig = {
-                          ...newAiConfig,
-                          baseURL: 'https://api.openai.com',
-                          model: 'gpt-4o-mini'
-                        };
-                      } else if (provider === 'custom') {
-                        newAiConfig = {
-                          ...newAiConfig,
-                          baseURL: '',
-                          model: ''
-                        };
-                      }
-
+                      const provider = e.target.value as 'deepseek' | 'openai' | 'openrouter' | 'custom';
+                      const newAiConfig = { ...aiConfig, provider };
                       setAiConfig(newAiConfig);
                       setIsDirty(true);
                       // 立即保存设置
@@ -258,6 +241,7 @@ const SettingsView = () => {
                   >
                     <option value="deepseek">DeepSeek</option>
                     <option value="openai">OpenAI</option>
+                    <option value="openrouter">OpenRouter</option>
                     <option value="custom">自定义</option>
                   </select>
                 </div>
@@ -267,15 +251,21 @@ const SettingsView = () => {
                   <label className="block text-sm text-gray-600 mb-2">API URL</label>
                   <input
                     type="text"
-                    value={aiConfig.baseURL}
+                    value={getCurrentProviderConfig().baseURL}
                     onChange={(e) => {
-                      const newAiConfig = { ...aiConfig, baseURL: e.target.value };
+                      const newAiConfig = {
+                        ...aiConfig,
+                        [aiConfig.provider]: {
+                          ...getCurrentProviderConfig(),
+                          baseURL: e.target.value
+                        }
+                      };
                       setAiConfig(newAiConfig);
                       setIsDirty(true);
                       // 立即保存设置
                       saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
                     }}
-                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : '输入您的自定义 API 端点'}
+                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : aiConfig.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : '输入您的自定义 API 端点'}
                     className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                   />
                 </div>
@@ -285,9 +275,15 @@ const SettingsView = () => {
                   <label className="block text-sm text-gray-600 mb-2">API 密钥</label>
                   <input
                     type="password"
-                    value={aiConfig.apiKey}
+                    value={getCurrentProviderConfig().apiKey}
                     onChange={(e) => {
-                      const newAiConfig = { ...aiConfig, apiKey: e.target.value };
+                      const newAiConfig = {
+                        ...aiConfig,
+                        [aiConfig.provider]: {
+                          ...getCurrentProviderConfig(),
+                          apiKey: e.target.value
+                        }
+                      };
                       setAiConfig(newAiConfig);
                       setIsDirty(true);
                       // 立即保存设置
@@ -299,6 +295,7 @@ const SettingsView = () => {
                   <p className="text-xs text-gray-400 mt-1">
                     {aiConfig.provider === 'deepseek' && '获取 DeepSeek API 密钥：https://platform.deepseek.com/'}
                     {aiConfig.provider === 'openai' && '获取 OpenAI API 密钥：https://platform.openai.com/'}
+                    {aiConfig.provider === 'openrouter' && '获取 OpenRouter API 密钥：https://openrouter.ai/keys'}
                     {aiConfig.provider === 'custom' && '输入您的自定义 API 端点密钥'}
                   </p>
                 </div>
@@ -306,25 +303,131 @@ const SettingsView = () => {
                 {/* 模型选择 */}
                 <div>
                   <label className="block text-sm text-gray-600 mb-2">模型</label>
-                  <input
-                    type="text"
-                    value={aiConfig.model}
-                    onChange={(e) => {
-                      const newAiConfig = { ...aiConfig, model: e.target.value };
-                      setAiConfig(newAiConfig);
-                      setIsDirty(true);
-                      // 立即保存设置
-                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
-                    }}
-                    placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : aiConfig.provider === 'openai' ? 'gpt-4o-mini' : '输入您的模型名称'}
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  />
+                  {aiConfig.provider === 'openrouter' ? (
+                    <select
+                      value={getCurrentProviderConfig().model}
+                      onChange={(e) => {
+                        const newAiConfig = {
+                          ...aiConfig,
+                          [aiConfig.provider]: {
+                            ...getCurrentProviderConfig(),
+                            model: e.target.value
+                          }
+                        };
+                        setAiConfig(newAiConfig);
+                        setIsDirty(true);
+                        // 立即保存设置
+                        saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                      }}
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    >
+                      <optgroup label="OpenAI">
+                        <option value="openai/gpt-5-mini">openai/gpt-5-mini</option>
+                        <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
+                        <option value="openai/gpt-5.1">openai/gpt-5.1</option>
+                        <option value="openai/gpt-5.1-chat">openai/gpt-5.1-chat</option>
+                        <option value="openai/gpt-5-image-mini">openai/gpt-5-image-mini</option>
+                      </optgroup>
+                      <optgroup label="Grok">
+                        <option value="x-ai/grok-4.1-fast:free">x-ai/grok-4.1-fast:free</option>
+                        <option value="x-ai/grok-4.1-fast">x-ai/grok-4.1-fast</option>
+                      </optgroup>
+                      <optgroup label="Google">
+                        <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
+                        <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
+                      </optgroup>
+                      <optgroup label="Qwen">
+                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
+                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
+                        <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
+                        <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
+                      </optgroup>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={getCurrentProviderConfig().model}
+                      onChange={(e) => {
+                        const newAiConfig = {
+                          ...aiConfig,
+                          [aiConfig.provider]: {
+                            ...getCurrentProviderConfig(),
+                            model: e.target.value
+                          }
+                        };
+                        setAiConfig(newAiConfig);
+                        setIsDirty(true);
+                        // 立即保存设置
+                        saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                      }}
+                      placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : aiConfig.provider === 'openai' ? 'gpt-4o-mini' : '输入您的模型名称'}
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    />
+                  )}
                   <p className="text-xs text-gray-400 mt-1">
-                    {aiConfig.provider === 'deepseek' && '推荐：deepseek-chat, deepseek-reasoner'}
-                    {aiConfig.provider === 'openai' && '推荐：gpt-4o, gpt-4o-mini'}
+                    {aiConfig.provider === 'deepseek' && '推荐:deepseek-chat, deepseek-reasoner'}
+                    {aiConfig.provider === 'openai' && '推荐:gpt-4o, gpt-4o-mini'}
+                    {aiConfig.provider === 'openrouter' && '从下拉列表中选择模型'}
                     {aiConfig.provider === 'custom' && '输入您的模型名称'}
                   </p>
                 </div>
+
+                {/* OpenRouter 专用配置 */}
+                {aiConfig.provider === 'openrouter' && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-2">网站 URL（可选）</label>
+                      <input
+                        type="text"
+                        value={(aiConfig.openrouter as any).siteUrl || ''}
+                        onChange={(e) => {
+                          const newAiConfig = {
+                            ...aiConfig,
+                            openrouter: {
+                              ...aiConfig.openrouter,
+                              siteUrl: e.target.value
+                            }
+                          };
+                          setAiConfig(newAiConfig);
+                          setIsDirty(true);
+                          // 立即保存设置
+                          saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                        }}
+                        placeholder="https://your-site.com"
+                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        用于 OpenRouter 排名展示（可选）
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-2">应用名称（可选）</label>
+                      <input
+                        type="text"
+                        value={(aiConfig.openrouter as any).siteName || ''}
+                        onChange={(e) => {
+                          const newAiConfig = {
+                            ...aiConfig,
+                            openrouter: {
+                              ...aiConfig.openrouter,
+                              siteName: e.target.value
+                            }
+                          };
+                          setAiConfig(newAiConfig);
+                          setIsDirty(true);
+                          // 立即保存设置
+                          saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                        }}
+                        placeholder="MemoCurve"
+                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        用于 OpenRouter 排名展示（可选）
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 {/* 保存按钮 */}
                 <button
