@@ -57,9 +57,9 @@ const AIAnalysisModal = ({ note, onClose }: AIAnalysisModalProps) => {
         messages: [
           {
             role: 'system',
-            content: `你是一个专业的笔记分析助手，专门帮助高三学生用户分析学习笔记。
+            content: `你是一个专业的笔记分析助手,专门帮助高三学生用户分析学习笔记。
 
-请分析用户提供的笔记内容，并给出：
+请分析用户提供的笔记内容,并给出：
 1. 主要学习主题和关键词
 2. 学习建议和改进方向
 3. 复习计划建议（基于艾宾浩斯遗忘曲线）
@@ -109,10 +109,17 @@ ${note.images.length > 0 ? `包含 ${note.images.length} 张图片` : ''}
     }
   }, [note.content, note.createdAt, note.images.length, note.nextReviewDate, note.stage, note.title, settings]);
 
+  // Use ref to track if analysis has been started for this note
+  const hasAnalyzedRef = useRef<string | null>(null);
+
   useEffect(() => {
-    // Start analysis when modal opens
-    analyzeNote();
-  }, [note.id, analyzeNote]);
+    // Only start analysis once when modal opens for a new note
+    if (hasAnalyzedRef.current !== note.id) {
+      hasAnalyzedRef.current = note.id;
+      analyzeNote();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
 
   const formatAnalysisText = (text: string) => {
     // Add line breaks and formatting
