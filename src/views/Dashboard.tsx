@@ -162,10 +162,7 @@ const Dashboard = () => {
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <div style="font-weight: 600; color: #374151;">${item.category.name}</div>
                     <div style="font-size: 14px; color: #6b7280;">
-                      ${item.rate === 100 ?
-          `<span style="color: #10b981;">今日新添加</span>` :
-          `${Math.round(item.rate)}% (${item.count}次复习)`
-        }
+                      ${`${Math.round(item.rate)}% (${item.count}次复习)`}
                     </div>
                   </div>
                   ${item.rate < 100 ? `
