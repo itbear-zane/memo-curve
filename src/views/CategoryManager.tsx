@@ -135,7 +135,9 @@ const CategoryManager = () => {
 
   if (activeCategory) {
     const cat = categories.find(c => c.id === activeCategory);
-    const catNotes = notes.filter(n => n.categoryId === activeCategory);
+    const catNotes = notes
+      .filter(n => n.categoryId === activeCategory)
+      .sort((a, b) => a.nextReviewDate - b.nextReviewDate);
 
     // Pagination logic
     const totalPages = Math.ceil(catNotes.length / notesPerPage);
