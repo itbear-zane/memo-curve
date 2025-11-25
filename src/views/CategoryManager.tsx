@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import type { DropResult } from '@hello-pangea/dnd';
 import { useApp } from '../context/AppContext';
 import dbHelper, { STORE_CATS } from '../utils/database';
 import { generateId, getRelativeTime, compressImage } from '../utils/helper_functions';
@@ -12,6 +13,18 @@ const CategoryManager = () => {
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; category: Category | null }>({ show: false, category: null });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [notesPerPage, setNotesPerPage] = useState(5); // Dynamic page size
+  const pageSizeOptions = [1, 2, 3, 4, 5, 10, 15, 20, 30, 50]; // Page size options
+
+  // Reset to first page when category changes or page size changes
+  React.useEffect(() => {
+    if (activeCategory) {
+      setCurrentPage(1);
+    }
+  }, [activeCategory, notesPerPage]);
 
   // NoteEditor Sub-component
   const NoteEditor = ({ note, onClose }: { note: Note, onClose: () => void }) => {
@@ -107,7 +120,7 @@ const CategoryManager = () => {
     }
   };
 
-  const handleDragEnd = (result: any) => {
+  const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
     const { source, destination } = result;
     if (source.index === destination.index) return;
@@ -123,12 +136,82 @@ const CategoryManager = () => {
   if (activeCategory) {
     const cat = categories.find(c => c.id === activeCategory);
     const catNotes = notes.filter(n => n.categoryId === activeCategory);
+
+    // Pagination logic
+    const totalPages = Math.ceil(catNotes.length / notesPerPage);
+    const startIndex = (currentPage - 1) * notesPerPage;
+    const endIndex = startIndex + notesPerPage;
+    const currentNotes = catNotes.slice(startIndex, endIndex);
+
+    // Pagination component
+    const Pagination = () => {
+      if (totalPages <= 1) return null;
+
+      return (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+          >
+            上一页
+          </button>
+
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-2 text-sm rounded-lg transition ${
+                  currentPage === page
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+          >
+            下一页
+          </button>
+        </div>
+      );
+    };
+
     return (
       <div className="bg-gray-50 min-h-screen pb-20">
-        <div className="p-4 bg-white shadow-sm flex items-center gap-3 sticky top-0 z-10"><button onClick={() => { setActiveCategory(null); setView('dashboard'); }}><ArrowLeft className="w-6 h-6 text-gray-600" /></button><h2 className="font-bold text-lg">{cat?.name || '分类详情'}</h2></div>
+        <div className="p-4 bg-white shadow-sm flex items-center gap-3 sticky top-0 z-10">
+          <button onClick={() => { setActiveCategory(null); setView('dashboard'); }}>
+            <ArrowLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <h2 className="font-bold text-lg">{cat?.name || '分类详情'}</h2>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">每页显示:</span>
+              <select
+                value={notesPerPage}
+                onChange={(e) => setNotesPerPage(Number(e.target.value))}
+                className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              >
+                {pageSizeOptions.map(option => (
+                  <option key={option} value={option}>{option} 条</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-sm text-gray-500">
+              {catNotes.length} 条笔记 · 第 {currentPage}/{totalPages} 页
+            </div>
+          </div>
+        </div>
         <div className="p-4 space-y-3">
           {catNotes.length === 0 && <div className="text-center text-gray-400 mt-10">该分类下暂无笔记</div>}
-          {catNotes.map(n => (
+          {currentNotes.map(n => (
             <div key={n.id} onClick={() => setEditingNote(n)} className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-start cursor-pointer hover:bg-gray-50 transition active:scale-[0.98]">
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2">{n.title}<Edit3 className="w-3 h-3 text-gray-300" /></h3>
@@ -139,6 +222,7 @@ const CategoryManager = () => {
               <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }} className="text-gray-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
+          <Pagination />
         </div>
       </div>
     );
