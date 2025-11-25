@@ -23,12 +23,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
-  const [view, setView] = useState<'dashboard' | 'add' | 'review' | 'settings' | 'category'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'add' | 'review' | 'settings' | 'category' | 'ai-analysis'>('dashboard');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [aiAnalysisNote, setAIAnalysisNote] = useState<Note | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -262,6 +263,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     currentReviewIndex, setCurrentReviewIndex,
     toast, showToast, previewImage, setPreviewImage,
     showAnalytics, setShowAnalytics,
+    aiAnalysisNote, setAIAnalysisNote,
     saveNoteToDB, deleteNoteFromDB, saveSettingsToDB,
     handleAddNote, handleUpdateNote, handleDeleteNote, handleReview,
     requestNotificationPermission, handleExportData, handleImportData,

@@ -7,6 +7,7 @@ import AddNote from './views/AddNote';
 import ReviewSession from './views/ReviewSession';
 import SettingsView from './views/SettingsView';
 import CategoryManager from './views/CategoryManager';
+import AIAnalysisView from './views/AIAnalysisView';
 
 // Components
 import NavBar from './components/NavBar';
@@ -40,6 +41,7 @@ const MainLayout = () => {
       {view === 'review' && <ReviewSession />}
       {view === 'settings' && <SettingsView />}
       {view === 'category' && <CategoryManager />}
+      {view === 'ai-analysis' && <AIAnalysisView />}
 
       {/* Modals */}
       {showAnalytics && <AnalyticsModal onClose={() => setShowAnalytics(false)} />}

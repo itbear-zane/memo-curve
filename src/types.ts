@@ -48,8 +48,8 @@ export interface CurveProfile {
     categories: Category[];
     settings: AppSettings;
     setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    view: 'dashboard' | 'add' | 'review' | 'settings' | 'category';
-    setView: (view: 'dashboard' | 'add' | 'review' | 'settings' | 'category') => void;
+    view: 'dashboard' | 'add' | 'review' | 'settings' | 'category' | 'ai-analysis';
+    setView: (view: 'dashboard' | 'add' | 'review' | 'settings' | 'category' | 'ai-analysis') => void;
     activeCategory: string | null;
     setActiveCategory: (id: string | null) => void;
     currentReviewIndex: number;
@@ -60,6 +60,8 @@ export interface CurveProfile {
     setPreviewImage: (img: string | null) => void;
     showAnalytics: boolean;
     setShowAnalytics: (show: boolean) => void;
+    aiAnalysisNote: Note | null;
+    setAIAnalysisNote: (note: Note | null) => void;
     
     // Actions
     saveNoteToDB: (note: Note) => Promise<void>;

@@ -6,15 +6,13 @@ import { useApp } from '../context/AppContext';
 import dbHelper, { STORE_CATS } from '../utils/database';
 import { generateId, getRelativeTime, compressImage } from '../utils/helper_functions';
 import type { Note, Category } from '../types';
-import AIAnalysisModal from '../components/AIAnalysisModal';
 
 const CategoryManager = () => {
-  const { notes, categories, activeCategory, setActiveCategory, setView, setPreviewImage, handleUpdateNote, handleDeleteNote, setCategories, showToast, settings } = useApp();
+  const { notes, categories, activeCategory, setActiveCategory, setView, setPreviewImage, handleUpdateNote, handleDeleteNote, setCategories, showToast, settings, setAIAnalysisNote } = useApp();
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; category: Category | null }>({ show: false, category: null });
-  const [aiAnalysisNote, setAIAnalysisNote] = useState<Note | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -228,8 +226,9 @@ const CategoryManager = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     setAIAnalysisNote(n);
+                    setView('ai-analysis');
                   }}
-                  className="text-gray-400 hover:text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition-all duration-200"
+                  className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 p-2 rounded-lg transition-all duration-200"
                   title="AI 分析笔记"
                 >
                   <Brain className="w-4 h-4" />
@@ -240,12 +239,6 @@ const CategoryManager = () => {
           ))}
           <Pagination />
         </div>
-        {aiAnalysisNote && (
-          <AIAnalysisModal
-            note={aiAnalysisNote}
-            onClose={() => setAIAnalysisNote(null)}
-          />
-        )}
       </div>
     );
   }
