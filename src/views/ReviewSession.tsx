@@ -114,7 +114,7 @@ const ReviewSession = () => {
           <div className="p-8 flex-1 flex flex-col items-center justify-center text-center">
             <div className="flex gap-2 mb-4">
               <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs text-gray-500">{categoryName}</span>
-              <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-xs text-indigo-600">{curve.name} {note.stage === 0 ? '今日新添加' : `第${note.stage}次复习`}</span>
+              <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-xs text-indigo-600">{curve.name} {`第${note.stage}次复习`}</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">{note.title}</h2>
             {!showAnswer && (
