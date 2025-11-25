@@ -68,7 +68,12 @@ const CategoryManager = () => {
           <div className="flex items-center gap-3"><button onClick={onClose}><ArrowLeft className="w-6 h-6 text-gray-600" /></button><h2 className="font-bold text-lg">编辑笔记</h2></div>
           <button onClick={save} className="text-indigo-600 font-bold">保存</button>
         </div>
-        <div className="p-4 space-y-4 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+          <div className="bg-indigo-50 p-4 rounded-xl">
+            <label className="block text-sm text-indigo-800 mb-2 font-bold flex items-center gap-2"><TrendingUp className="w-4 h-4" /> 复习策略</label>
+            <select value={curveId} onChange={e => setCurveId(e.target.value)} className="w-full p-2 bg-white rounded-lg border border-indigo-100 mb-2">{settings.curveProfiles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            {curveId !== note.curveId && (<div className="flex items-center gap-2 text-xs text-indigo-600 mt-2"><input type="checkbox" id="reschedule" checked={reschedule} onChange={e => setReschedule(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500" /><label htmlFor="reschedule">立即重新安排复习</label></div>)}
+          </div>
           <div><label className="block text-sm text-gray-500 mb-1">标题</label><input value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl font-bold" /></div>
           <div><label className="block text-sm text-gray-500 mb-1">内容</label><textarea value={content} onChange={e => setContent(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl h-40 resize-none" /></div>
           <div>
@@ -80,11 +85,6 @@ const CategoryManager = () => {
               <button onClick={() => fileInputRef.current?.click()} disabled={isProcessingImg} className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-indigo-500 hover:border-indigo-500 transition disabled:opacity-50">{isProcessingImg ? <RotateCw className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}</button>
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
             </div>
-          </div>
-          <div className="bg-indigo-50 p-4 rounded-xl">
-            <label className="block text-sm text-indigo-800 mb-2 font-bold flex items-center gap-2"><TrendingUp className="w-4 h-4" /> 复习策略</label>
-            <select value={curveId} onChange={e => setCurveId(e.target.value)} className="w-full p-2 bg-white rounded-lg border border-indigo-100 mb-2">{settings.curveProfiles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            {curveId !== note.curveId && (<div className="flex items-center gap-2 text-xs text-indigo-600 mt-2"><input type="checkbox" id="reschedule" checked={reschedule} onChange={e => setReschedule(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500" /><label htmlFor="reschedule">立即重新安排复习</label></div>)}
           </div>
         </div>
       </div>
