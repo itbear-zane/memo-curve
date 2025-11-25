@@ -14,6 +14,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AppSettings>({
     curveProfiles: DEFAULT_CURVES,
     enableNotifications: false,
+    aiConfig: {
+      provider: 'deepseek',
+      baseURL: 'https://api.deepseek.com',
+      apiKey: '',
+      model: 'deepseek-chat',
+      enabled: false,
+    },
   });
 
   const [view, setView] = useState<'dashboard' | 'add' | 'review' | 'settings' | 'category'>('dashboard');

@@ -28,6 +28,13 @@ export interface CurveProfile {
   export interface AppSettings {
     curveProfiles: CurveProfile[];
     enableNotifications: boolean;
+    aiConfig: {
+      provider: 'deepseek' | 'openai' | 'custom';
+      baseURL: string;
+      apiKey: string;
+      model: string;
+      enabled: boolean;
+    };
   }
   
   // 为了方便 Context 使用，我们定义 Context 的接口
@@ -54,7 +61,7 @@ export interface CurveProfile {
     saveNoteToDB: (note: Note) => Promise<void>;
     deleteNoteFromDB: (id: string) => Promise<void>;
     saveSettingsToDB: (newSettings: AppSettings) => Promise<void>;
-    handleAddNote: (noteData: any) => Promise<void>;
+    handleAddNote: (noteData: Omit<Note, 'id' | 'createdAt' | 'nextReviewDate' | 'stage' | 'reviewHistory'>) => Promise<void>;
     handleUpdateNote: (updatedNote: Note) => Promise<void>;
     handleDeleteNote: (id: string) => Promise<void>;
     handleReview: (note: Note, result: 'remembered' | 'forgot') => Promise<void>;

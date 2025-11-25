@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X, Brain } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import { useApp } from '../context/AppContext';
 import dbHelper, { STORE_CATS } from '../utils/database';
 import { generateId, getRelativeTime, compressImage } from '../utils/helper_functions';
 import type { Note, Category } from '../types';
+import AIAnalysisModal from '../components/AIAnalysisModal';
 
 const CategoryManager = () => {
   const { notes, categories, activeCategory, setActiveCategory, setView, setPreviewImage, handleUpdateNote, handleDeleteNote, setCategories, showToast, settings } = useApp();
@@ -13,6 +14,7 @@ const CategoryManager = () => {
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; category: Category | null }>({ show: false, category: null });
+  const [aiAnalysisNote, setAIAnalysisNote] = useState<Note | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -221,11 +223,29 @@ const CategoryManager = () => {
                 {n.images.length > 0 && (<div className="flex gap-1 mt-2 flex-shrink-0">{n.images.slice(0, 3).map((img, idx) => <div key={idx} className="w-8 h-8 rounded overflow-hidden border"><img src={img} className="w-full h-full object-cover" alt="thumbnail" /></div>)}</div>)}
                 <div className="mt-2 flex items-center gap-2 text-xs"><span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">{n.stage === 0 ? '今日新添加' : `第${n.stage}次复习`}</span><span className="text-gray-400">下次复习时间: {getRelativeTime(n.nextReviewDate)}</span></div>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }} className="text-gray-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAIAnalysisNote(n);
+                  }}
+                  className="text-gray-400 hover:text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition-all duration-200"
+                  title="AI 分析笔记"
+                >
+                  <Brain className="w-4 h-4" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all duration-200"><Trash2 className="w-4 h-4" /></button>
+              </div>
             </div>
           ))}
           <Pagination />
         </div>
+        {aiAnalysisNote && (
+          <AIAnalysisModal
+            note={aiAnalysisNote}
+            onClose={() => setAIAnalysisNote(null)}
+          />
+        )}
       </div>
     );
   }

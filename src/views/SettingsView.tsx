@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock } from 'lucide-react';
+import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import dbHelper, { STORE_NOTES, STORE_CATS, STORE_SETTINGS } from '../utils/database';
 import { generateId } from '../utils/helper_functions';
@@ -14,6 +14,7 @@ const SettingsView = () => {
   const [editingCurve, setEditingCurve] = useState<CurveProfile | null>(null);
   const [isNewCurve, setIsNewCurve] = useState(false);
   const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
+  const [aiConfig, setAiConfig] = useState(settings.aiConfig);
 
   useEffect(() => {
     if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -52,10 +53,15 @@ const SettingsView = () => {
     setIsDirty(true);
   };
 
-  const saveSettings = () => {
-    saveSettingsToDB({ ...settings, curveProfiles: editedCurves });
-    setIsDirty(false);
-    showToast('设置已保存');
+  const saveSettings = async () => {
+    try {
+      await saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: aiConfig });
+      setIsDirty(false);
+      showToast('设置已保存');
+    } catch (error) {
+      console.error('保存设置失败:', error);
+      showToast('保存失败', 'error');
+    }
   };
 
   const formatBytes = (bytes: number, decimals = 2) => {
@@ -181,6 +187,154 @@ const SettingsView = () => {
             >
               <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${settings.enableNotifications ? 'left-6.5' : 'left-0.5'}`}></div>
             </button>
+          </div>
+        </section>
+
+        {/* AI 配置 */}
+        <section className="bg-white p-4 rounded-xl shadow-sm">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Brain className="w-5 h-5 text-indigo-500" /> AI 分析配置
+          </h3>
+
+          <div className="space-y-4">
+            {/* 启用开关 */}
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-gray-600 font-medium">启用 AI 分析</span>
+                <p className="text-xs text-gray-400 mt-1">为笔记提供智能分析和学习建议</p>
+              </div>
+              <button
+                onClick={() => {
+                  const newAiConfig = { ...aiConfig, enabled: !aiConfig.enabled };
+                  setAiConfig(newAiConfig);
+                  setIsDirty(true);
+                  // 立即保存设置
+                  saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                }}
+                className={`w-12 h-6 rounded-full transition-colors relative ${aiConfig.enabled ? 'bg-indigo-500' : 'bg-gray-300'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${aiConfig.enabled ? 'left-6.5' : 'left-0.5'}`}></div>
+              </button>
+            </div>
+
+            {aiConfig.enabled && (
+              <div className="space-y-3 border-t pt-4">
+                {/* 提供商选择 */}
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">AI 提供商</label>
+                  <select
+                    value={aiConfig.provider}
+                    onChange={(e) => {
+                      const provider = e.target.value as 'deepseek' | 'openai' | 'custom';
+                      // 根据提供商自动设置默认配置
+                      let newAiConfig = { ...aiConfig, provider };
+
+                      if (provider === 'deepseek') {
+                        newAiConfig = {
+                          ...newAiConfig,
+                          baseURL: 'https://api.deepseek.com',
+                          model: 'deepseek-chat'
+                        };
+                      } else if (provider === 'openai') {
+                        newAiConfig = {
+                          ...newAiConfig,
+                          baseURL: 'https://api.openai.com',
+                          model: 'gpt-4o-mini'
+                        };
+                      } else if (provider === 'custom') {
+                        newAiConfig = {
+                          ...newAiConfig,
+                          baseURL: '',
+                          model: ''
+                        };
+                      }
+
+                      setAiConfig(newAiConfig);
+                      setIsDirty(true);
+                      // 立即保存设置
+                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                    }}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="custom">自定义</option>
+                  </select>
+                </div>
+
+                {/* API 端点 */}
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">API URL</label>
+                  <input
+                    type="text"
+                    value={aiConfig.baseURL}
+                    onChange={(e) => {
+                      const newAiConfig = { ...aiConfig, baseURL: e.target.value };
+                      setAiConfig(newAiConfig);
+                      setIsDirty(true);
+                      // 立即保存设置
+                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                    }}
+                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : '输入您的自定义 API 端点'}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                </div>
+
+                {/* API 密钥 */}
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">API 密钥</label>
+                  <input
+                    type="password"
+                    value={aiConfig.apiKey}
+                    onChange={(e) => {
+                      const newAiConfig = { ...aiConfig, apiKey: e.target.value };
+                      setAiConfig(newAiConfig);
+                      setIsDirty(true);
+                      // 立即保存设置
+                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                    }}
+                    placeholder="输入您的 API 密钥"
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {aiConfig.provider === 'deepseek' && '获取 DeepSeek API 密钥：https://platform.deepseek.com/'}
+                    {aiConfig.provider === 'openai' && '获取 OpenAI API 密钥：https://platform.openai.com/'}
+                    {aiConfig.provider === 'custom' && '输入您的自定义 API 端点密钥'}
+                  </p>
+                </div>
+
+                {/* 模型选择 */}
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">模型</label>
+                  <input
+                    type="text"
+                    value={aiConfig.model}
+                    onChange={(e) => {
+                      const newAiConfig = { ...aiConfig, model: e.target.value };
+                      setAiConfig(newAiConfig);
+                      setIsDirty(true);
+                      // 立即保存设置
+                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                    }}
+                    placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : aiConfig.provider === 'openai' ? 'gpt-4o-mini' : '输入您的模型名称'}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {aiConfig.provider === 'deepseek' && '推荐：deepseek-chat, deepseek-reasoner'}
+                    {aiConfig.provider === 'openai' && '推荐：gpt-4o, gpt-4o-mini'}
+                    {aiConfig.provider === 'custom' && '输入您的模型名称'}
+                  </p>
+                </div>
+
+                {/* 保存按钮 */}
+                <button
+                  onClick={saveSettings}
+                  className="w-full py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-medium text-sm"
+                >
+                  保存
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
