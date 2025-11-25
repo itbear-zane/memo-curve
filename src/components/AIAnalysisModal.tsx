@@ -17,7 +17,7 @@ const AIAnalysisModal = ({ note, onClose }: AIAnalysisModalProps) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const analysisRef = useRef<HTMLDivElement>(null);
 
-  const { settings } = useApp();
+  const { settings, handleUpdateNote } = useApp();
 
   const analyzeNote = useCallback(async () => {
     setIsLoading(true);
@@ -100,6 +100,21 @@ ${note.images.length > 0 ? `包含 ${note.images.length} 张图片` : ''}
       }
 
       setIsStreaming(false);
+
+      // Save analysis result to database
+      try {
+        const updatedNote: Note = {
+          ...note,
+          aiAnalysis: {
+            content: fullContent,
+            generatedAt: Date.now(),
+          },
+        };
+        await handleUpdateNote(updatedNote);
+      } catch (saveErr) {
+        console.error('保存 AI 分析结果失败:', saveErr);
+        // Don't show error to user as the analysis is already displayed
+      }
     } catch (err) {
       console.error('AI 分析失败:', err);
       setError(err instanceof Error ? err.message : '分析失败，请检查网络连接和 API 密钥');
@@ -113,8 +128,12 @@ ${note.images.length > 0 ? `包含 ${note.images.length} 张图片` : ''}
   const hasAnalyzedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only start analysis once when modal opens for a new note
-    if (hasAnalyzedRef.current !== note.id) {
+    // Check if there's a cached analysis result
+    if (note.aiAnalysis?.content) {
+      setAnalysis(note.aiAnalysis.content);
+      hasAnalyzedRef.current = note.id;
+    } else if (hasAnalyzedRef.current !== note.id) {
+      // Only start analysis once when modal opens for a new note without cache
       hasAnalyzedRef.current = note.id;
       analyzeNote();
     }
@@ -197,6 +216,11 @@ ${note.images.length > 0 ? `包含 ${note.images.length} 张图片` : ''}
               <div className="flex items-center gap-2 text-blue-600">
                 <Sparkles className="w-5 h-5" />
                 <span className="font-medium">AI 分析结果</span>
+                {note.aiAnalysis?.generatedAt && (
+                  <span className="text-xs text-gray-500 ml-auto">
+                    生成于 {new Date(note.aiAnalysis.generatedAt).toLocaleString('zh-CN')}
+                  </span>
+                )}
               </div>
               <div
                 ref={analysisRef}

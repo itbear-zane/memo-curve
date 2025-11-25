@@ -16,6 +16,10 @@ export interface CurveProfile {
     nextReviewDate: number;
     stage: number;
     reviewHistory: { date: number; action: 'remembered' | 'forgot' }[];
+    aiAnalysis?: {
+      content: string;
+      generatedAt: number;
+    };
   }
   
   export interface Category {
