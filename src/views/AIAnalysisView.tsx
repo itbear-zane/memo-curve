@@ -240,38 +240,55 @@ ${aiAnalysisNote.images.length > 0 ? `包含 ${aiAnalysisNote.images.length} 张
         )}
 
         {analysis && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 border-b flex items-center justify-between">
-              <div className="flex items-center gap-2 text-indigo-600">
-                <Sparkles className="w-5 h-5" />
-                <span className="font-semibold">AI 分析结果</span>
+          <div className="bg-gradient-to-br from-slate-50/50 via-white to-blue-50/20 rounded-2xl shadow-lg border border-slate-200/60 overflow-hidden backdrop-blur-sm">
+            <div className="relative bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 p-5 border-b border-indigo-200/30">
+              <div className="absolute inset-0 bg-white/10"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/30 rounded-lg backdrop-blur-sm">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-white text-base">AI 分析结果</span>
+                    <p className="text-white/90 text-xs mt-0.5">基于多模态大语言模型生成</p>
+                  </div>
+                </div>
+                {aiAnalysisNote.aiAnalysis?.generatedAt && (
+                  <span className="text-xs text-white/90 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    {new Date(aiAnalysisNote.aiAnalysis.generatedAt).toLocaleString('zh-CN', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                )}
               </div>
-              {aiAnalysisNote.aiAnalysis?.generatedAt && (
-                <span className="text-xs text-gray-500">
-                  生成于 {new Date(aiAnalysisNote.aiAnalysis.generatedAt).toLocaleString('zh-CN')}
-                </span>
-              )}
             </div>
             <div
               ref={analysisRef}
-              className="prose prose-sm max-w-none p-4 text-gray-700"
+              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80"
+              style={{ 
+                lineHeight: '1.8',
+                fontSize: '0.9375rem'
+              }}
               dangerouslySetInnerHTML={{ __html: formatAnalysisText(analysis) }}
             />
-            <div className="p-4 border-t bg-gray-50">
+            <div className="p-5 border-t border-slate-200/50 bg-gradient-to-br from-slate-50/30 to-blue-50/20">
               <button
                 onClick={analyzeNote}
                 disabled={isLoading}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="w-full px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    重新分析中...
+                    <span>重新分析中...</span>
                   </>
                 ) : (
                   <>
                     <Brain className="w-4 h-4" />
-                    重新分析
+                    <span>重新分析</span>
                   </>
                 )}
               </button>
