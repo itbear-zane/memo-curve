@@ -2,10 +2,23 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAnalytics } from '../hooks/useAnalytics';
+import type { Note } from '../types';
 
 const ReviewSession = () => {
   const { categories, settings, currentReviewIndex, setCurrentReviewIndex, handleReview, setView, setPreviewImage } = useApp();
   const { dueNotes } = useAnalytics();
+
+  // 获取笔记的复习状态信息
+  const getReviewStatusText = (note: Note) => {
+
+    // 如果已经过期
+    if (note.stage === 0) {
+      return '已过期';
+    }
+
+    // 默认情况
+    return `第${note.stage}次复习`;
+  };
 
   const [showAnswer, setShowAnswer] = useState(false);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
@@ -114,7 +127,7 @@ const ReviewSession = () => {
           <div className="p-8 flex-1 flex flex-col items-center justify-center text-center">
             <div className="flex gap-2 mb-4">
               <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs text-gray-500">{categoryName}</span>
-              <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-xs text-indigo-600">{curve.name} {`第${note.stage}次复习`}</span>
+              <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-xs text-indigo-600">{curve.name} {getReviewStatusText(note)}</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">{note.title}</h2>
             {!showAnswer && (
