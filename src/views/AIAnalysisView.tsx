@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Brain, Sparkles, Loader2 } from 'lucide-react';
 import OpenAI from 'openai';
 import { useApp } from '../context/AppContext';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const AIAnalysisView = () => {
   const { aiAnalysisNote, setView, settings, handleUpdateNote } = useApp();
@@ -139,15 +144,6 @@ ${aiAnalysisNote.images.length > 0 ? `包含 ${aiAnalysisNote.images.length} 张
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiAnalysisNote?.id]);
 
-  const formatAnalysisText = (text: string) => {
-    // Add line breaks and formatting
-    return text
-      .replace(/\n\n/g, '<br/><br/>')
-      .replace(/\n/g, '<br/>')
-      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
-      .replace(/_(.*?)_/g, '<em>$1</em>');
-  };
-
   const handleBack = () => {
     setView('category');
   };
@@ -267,13 +263,49 @@ ${aiAnalysisNote.images.length > 0 ? `包含 ${aiAnalysisNote.images.length} 张
             </div>
             <div
               ref={analysisRef}
-              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80"
-              style={{ 
-                lineHeight: '1.8',
-                fontSize: '0.9375rem'
-              }}
-              dangerouslySetInnerHTML={{ __html: formatAnalysisText(analysis) }}
-            />
+              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-800 prose-strong:font-semibold prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-blockquote:border-l-indigo-500 prose-blockquote:text-slate-600 prose-table:text-sm"
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+                components={{
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-4">
+                      <table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg">
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  thead: ({ children }) => (
+                    <thead className="bg-slate-50">{children}</thead>
+                  ),
+                  tbody: ({ children }) => (
+                    <tbody className="bg-white divide-y divide-slate-100">{children}</tbody>
+                  ),
+                  th: ({ children }) => (
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      {children}
+                    </th>
+                  ),
+                  td: ({ children }) => (
+                    <td className="px-4 py-2 text-sm text-slate-600">{children}</td>
+                  ),
+                  code: ({ inline, children, ...props }: any) => {
+                    return inline ? (
+                      <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm" {...props}>
+                        {children}
+                      </code>
+                    ) : (
+                      <code className="block bg-slate-800 text-slate-100 p-4 rounded-lg overflow-x-auto" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {analysis}
+              </ReactMarkdown>
+            </div>
             <div className="p-5 border-t border-slate-200/50 bg-gradient-to-br from-slate-50/30 to-blue-50/20">
               <button
                 onClick={analyzeNote}
