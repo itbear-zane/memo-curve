@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X, Brain } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X, Sparkles } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import { useApp } from '../context/AppContext';
@@ -221,17 +221,18 @@ const CategoryManager = () => {
                 {n.images.length > 0 && (<div className="flex gap-1 mt-2 flex-shrink-0">{n.images.slice(0, 3).map((img, idx) => <div key={idx} className="w-8 h-8 rounded overflow-hidden border"><img src={img} className="w-full h-full object-cover" alt="thumbnail" /></div>)}</div>)}
                 <div className="mt-2 flex items-center gap-2 text-xs"><span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">{n.stage === 0 ? '今日新添加' : `第${n.stage}次复习`}</span><span className="text-gray-400">下次复习时间: {getRelativeTime(n.nextReviewDate)}</span></div>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setAIAnalysisNote(n);
                     setView('ai-analysis');
                   }}
-                  className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 p-2 rounded-lg transition-all duration-200"
+                  className="group relative bg-gradient-to-br from-indigo-400 to-purple-400 hover:from-indigo-500 hover:to-purple-500 p-2.5 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   title="AI 分析笔记"
                 >
-                  <Brain className="w-4 h-4" />
+                  <Sparkles className="w-5 h-5 text-white" />
+                  <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-300 rounded-full animate-pulse"></div>
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(n.id); }} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all duration-200"><Trash2 className="w-4 h-4" /></button>
               </div>
