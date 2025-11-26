@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain } from 'lucide-react';
+import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import dbHelper, { STORE_NOTES, STORE_CATS, STORE_SETTINGS } from '../utils/database';
 import { generateId } from '../utils/helper_functions';
 import type { CurveProfile } from '../types';
 import { CurveEditor, CurveVisualization } from '../components/CurveComponents';
+import { refreshProviderKey } from '../utils/aiKeyService';
 
 const SettingsView = () => {
   const { settings, saveSettingsToDB, setView, showToast, handleExportData, handleImportData, requestNotificationPermission } = useApp();
@@ -15,6 +16,7 @@ const SettingsView = () => {
   const [isNewCurve, setIsNewCurve] = useState(false);
   const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
   const [aiConfig, setAiConfig] = useState(settings.aiConfig);
+  const [isRefreshingKey, setIsRefreshingKey] = useState(false);
 
   // 获取当前提供商的配置
   const getCurrentProviderConfig = () => {
@@ -76,6 +78,22 @@ const SettingsView = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
+  // 刷新当前提供商的 API 密钥
+  const handleRefreshApiKey = async () => {
+    setIsRefreshingKey(true);
+    try {
+      const updatedSettings = await refreshProviderKey(settings, aiConfig.provider);
+      setAiConfig(updatedSettings.aiConfig);
+      await saveSettingsToDB(updatedSettings);
+      showToast(`${aiConfig.provider} 密钥已刷新`);
+    } catch (error) {
+      console.error('刷新密钥失败:', error);
+      showToast('刷新失败', 'error');
+    } finally {
+      setIsRefreshingKey(false);
+    }
   };
 
   return (
@@ -269,32 +287,41 @@ const SettingsView = () => {
                   />
                 </div>
 
-                {/* API 密钥 */}
+                {/* API 密钥状态显示 */}
                 <div>
                   <label className="block text-sm text-gray-600 mb-2">API 密钥</label>
-                  <input
-                    type="password"
-                    value={getCurrentProviderConfig().apiKey}
-                    onChange={(e) => {
-                      const newAiConfig = {
-                        ...aiConfig,
-                        [aiConfig.provider]: {
-                          ...getCurrentProviderConfig(),
-                          apiKey: e.target.value
-                        }
-                      };
-                      setAiConfig(newAiConfig);
-                      setIsDirty(true);
-                      // 立即保存设置
-                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
-                    }}
-                    placeholder="输入您的 API 密钥"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  />
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getCurrentProviderConfig().apiKey ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700">密钥已配置</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700">未配置密钥</span>
+                          </>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleRefreshApiKey}
+                        disabled={isRefreshingKey}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isRefreshingKey ? 'animate-spin' : ''}`} />
+                        {isRefreshingKey ? '刷新中...' : '刷新密钥'}
+                      </button>
+                    </div>
+                    {getCurrentProviderConfig().apiKey && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        密钥: {getCurrentProviderConfig().apiKey.substring(0, 6)}...{getCurrentProviderConfig().apiKey.substring(getCurrentProviderConfig().apiKey.length - 2)}
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">
-                    {aiConfig.provider === 'deepseek' && '获取 DeepSeek API 密钥：https://platform.deepseek.com/'}
-                    {aiConfig.provider === 'openai' && '获取 OpenAI API 密钥：https://platform.openai.com/'}
-                    {aiConfig.provider === 'openrouter' && '获取 OpenRouter API 密钥：https://openrouter.ai/keys'}
+                    密钥自动从 Supabase 数据库获取,无需手动输入
                   </p>
                 </div>
 

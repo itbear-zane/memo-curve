@@ -23,6 +23,7 @@
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@openai/agents": "^0.3.3",
+    "@supabase/supabase-js": "^2.84.0",
     "date-fns": "^4.1.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.554.0",

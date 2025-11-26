@@ -3,6 +3,7 @@ import dbHelper, { STORE_NOTES, STORE_CATS, STORE_SETTINGS } from '../utils/data
 import { generateId, isNoteDue } from '../utils/helper_functions';
 import type { Note, Category, AppSettings, AppContextType } from '../types';
 import { DEFAULT_CURVES, DEFAULT_CATEGORIES } from '../constants';
+import { loadAIKeysFromSupabase } from '../utils/aiKeyService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -127,6 +128,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               await dbHelper.put(STORE_SETTINGS, migratedSettings, 'config');
               console.log('AI 配置已迁移到新格式');
             }
+
+            // 从 Supabase 加载 AI API 密钥并合并
+            try {
+              console.log('开始从 Supabase 加载 AI 密钥...');
+              const updatedSettings = await loadAIKeysFromSupabase(migratedSettings);
+              
+              // 如果从 Supabase 成功加载了密钥,使用更新后的配置
+              if (updatedSettings.aiConfig.openrouter.apiKey || 
+                  updatedSettings.aiConfig.deepseek.apiKey || 
+                  updatedSettings.aiConfig.openai.apiKey) {
+                migratedSettings = updatedSettings;
+                // 同时保存到本地数据库
+                await dbHelper.put(STORE_SETTINGS, updatedSettings, 'config');
+                console.log('✅ AI 密钥已从 Supabase 同步到本地');
+              }
+            } catch (supabaseError) {
+              console.warn('从 Supabase 加载 AI 密钥失败,将使用本地配置:', supabaseError);
+              // 不影响应用正常启动,仅记录警告
+            }
+
             setSettings((prev: AppSettings) => ({ ...prev, ...migratedSettings }));
           }
         }
