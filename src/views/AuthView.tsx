@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, UserPlus, Mail, Lock, AlertCircle, X } from 'lucide-react';
 
@@ -11,7 +11,7 @@ export default function AuthView({ isModal = false, onClose }: { isModal?: boole
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { signIn, signUp, isAuthenticated } = useAuth();
+  const { signIn, signUp } = useAuth();
 
   // 注意: 登录成功后的自动跳转由 App.tsx 统一处理,这里不再自动关闭弹窗
 
