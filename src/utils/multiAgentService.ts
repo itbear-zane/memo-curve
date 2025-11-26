@@ -54,7 +54,6 @@ function createClient(config: {
 export async function analyzeUserIntent(
   client: OpenAI,
   model: string,
-  note: Note,
   userMessageContent: any[],
   onStream?: (content: string) => void
 ): Promise<string> {
@@ -178,7 +177,6 @@ export async function reviewIntentAnalysis(
 export async function analyzeIntentWithReview(
   client: OpenAI,
   model: string,
-  note: Note,
   userMessageContent: any[],
   onProgress?: (message: string) => void,
   onAgentStream?: (agentId: string, content: string) => void
@@ -198,7 +196,6 @@ export async function analyzeIntentWithReview(
     intentAnalysis = await analyzeUserIntent(
       client,
       model,
-      note,
       userMessageContent,
       (content) => onAgentStream?.('intent', content)
     );
@@ -504,7 +501,6 @@ export async function multiAgentAnalysis(
     const intentResult = await analyzeIntentWithReview(
       client,
       config.model,
-      note,
       [...userMessageContent],
       onProgress,
       onStream

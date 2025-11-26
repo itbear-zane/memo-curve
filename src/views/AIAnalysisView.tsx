@@ -378,7 +378,7 @@ const AIAnalysisView = () => {
               </h3>
             </div>
             <div ref={stepsRef} className="p-4 space-y-3 max-h-96 overflow-y-auto">
-              {analysisSteps.map((step, index) => (
+              {analysisSteps.map((step) => (
                 <div key={step.id} className="flex gap-3 items-start">
                   <div className="flex-shrink-0 mt-0.5">
                     {step.status === 'completed' && (
