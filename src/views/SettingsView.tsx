@@ -409,6 +409,13 @@ const SettingsView = () => {
                       }}
                       className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                     >
+                      <optgroup label="Qwen">
+                        <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
+                        <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
+                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
+                        <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
+                        <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
+                      </optgroup>
                       <optgroup label="OpenAI">
                         <option value="openai/gpt-5-mini">openai/gpt-5-mini</option>
                         <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
@@ -416,20 +423,14 @@ const SettingsView = () => {
                         <option value="openai/gpt-5.1-chat">openai/gpt-5.1-chat</option>
                         <option value="openai/gpt-5-image-mini">openai/gpt-5-image-mini</option>
                       </optgroup>
-                      <optgroup label="Grok">
-                        <option value="x-ai/grok-4.1-fast:free">x-ai/grok-4.1-fast:free</option>
-                        <option value="x-ai/grok-4.1-fast">x-ai/grok-4.1-fast</option>
-                      </optgroup>
                       <optgroup label="Google">
+                        <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
                         <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
                         <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
                       </optgroup>
-                      <optgroup label="Qwen">
-                        <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
-                        <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
-                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
-                        <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
-                        <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
+                      <optgroup label="Grok">
+                        <option value="x-ai/grok-4.1-fast:free">x-ai/grok-4.1-fast:free</option>
+                        <option value="x-ai/grok-4.1-fast">x-ai/grok-4.1-fast</option>
                       </optgroup>
                     </select>
                   ) : (
