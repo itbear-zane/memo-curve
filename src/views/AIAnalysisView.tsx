@@ -476,7 +476,7 @@ const AIAnalysisView = () => {
             </div>
             <div
               ref={analysisRef}
-              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-800 prose-strong:font-semibold prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-blockquote:border-l-indigo-500 prose-blockquote:text-slate-600 prose-table:text-sm max-h-[600px] overflow-y-auto"
+              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-800 prose-strong:font-semibold prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-blockquote:border-l-indigo-500 prose-blockquote:text-slate-600 prose-table:text-sm max-h-[600px] overflow-y-auto [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_table]:overflow-x-auto [&_table]:block [&_table]:max-w-full"
             >
               {/* 显示流式输出内容 */}
               {isStreaming && (
@@ -489,7 +489,7 @@ const AIAnalysisView = () => {
                           <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                         )}
                       </h2>
-                      <div className="prose-headings:!text-blue-800">
+                      <div className="prose-headings:!text-blue-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[rehypeKatex]}
@@ -512,7 +512,7 @@ const AIAnalysisView = () => {
                           <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
                         )}
                       </h2>
-                      <div className="prose-headings:!text-green-800">
+                      <div className="prose-headings:!text-green-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[rehypeKatex]}
@@ -535,7 +535,7 @@ const AIAnalysisView = () => {
                           <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
                         )}
                       </h2>
-                      <div className="prose-headings:!text-amber-800">
+                      <div className="prose-headings:!text-amber-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[rehypeKatex]}
@@ -558,7 +558,7 @@ const AIAnalysisView = () => {
                           <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
                         )}
                       </h2>
-                      <div className="prose-headings:!text-emerald-800">
+                      <div className="prose-headings:!text-emerald-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[rehypeKatex]}
@@ -581,7 +581,7 @@ const AIAnalysisView = () => {
                           <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
                         )}
                       </h2>
-                      <div className="prose-headings:!text-purple-800">
+                      <div className="prose-headings:!text-purple-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm, remarkMath]}
                           rehypePlugins={[rehypeKatex]}
@@ -601,7 +601,7 @@ const AIAnalysisView = () => {
                     <h2 className="!text-lg !font-bold !mb-3 !text-blue-800">
                       🎯 意图识别
                     </h2>
-                    <div className="prose-headings:!text-blue-800">
+                    <div className="prose-headings:!text-blue-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
@@ -617,7 +617,7 @@ const AIAnalysisView = () => {
                     <h2 className="!text-lg !font-bold !mb-3 !text-amber-800">
                       📝 原始记录分析
                     </h2>
-                    <div className="prose-headings:!text-amber-800">
+                    <div className="prose-headings:!text-amber-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
@@ -633,7 +633,7 @@ const AIAnalysisView = () => {
                     <h2 className="!text-lg !font-bold !mb-3 !text-emerald-800">
                       ✅ 订正解析
                     </h2>
-                    <div className="prose-headings:!text-emerald-800">
+                    <div className="prose-headings:!text-emerald-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}
@@ -649,7 +649,7 @@ const AIAnalysisView = () => {
                     <h2 className="!text-lg !font-bold !mb-3 !text-purple-800">
                       💡 总结建议
                     </h2>
-                    <div className="prose-headings:!text-purple-800">
+                    <div className="prose-headings:!text-purple-800 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:max-w-full [&_.katex]:text-sm [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeKatex]}

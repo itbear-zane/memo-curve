@@ -68,7 +68,7 @@ export async function analyzeUserIntent(
 输出要求：
 - 只需输出所有用户意图题目的原文
 - 如果分析不出任何题目，则返回"没有找到用户意图题目"
-- 对于公式必须用LaTeX格式
+- 对于公式必须用LaTeX格式，block公式太长时应该分行
 - 每道题需要单独标注是单选题、多选题、填空题、解答题中的哪一种`;
 
   const stream = await client.chat.completions.create({
@@ -262,7 +262,7 @@ ${intent}
 - 不需要输出你认为的正确答案
 - 不需要给出总结
 - 使用中文，逻辑清晰，适当使用表情符号
-- 对于公式必须用LaTeX格式`;
+- 对于公式必须用LaTeX格式，block公式太长时应该分行`;
 
   const response = await client.chat.completions.create({
     model,
@@ -319,7 +319,7 @@ ${intent}
 - 针对每道题，只需清晰展示正确的解题思路和答案
 - 不需要给出总结
 - 使用中文，条理清晰，适当使用表情符号
-- 对于公式必须用LaTeX格式`;
+- 对于公式必须用LaTeX格式，block公式太长时应该分行`;
 
   const response = await client.chat.completions.create({
     model,
@@ -401,7 +401,7 @@ ${correctionAnalysis}
 1. 使用中文，清晰的段落结构，尽可能保持简洁
 2. 更多使用表情符号增强可读性
 3. 保持专业且友好、充满鼓励的语气（不需要具体写鼓励的话）
-4. 对于公式必须用LaTeX格式
+4. 对于公式必须用LaTeX格式，block公式太长时应该分行
 
 请使用Markdown格式，包含合适的标题、列表、加粗等格式化元素。`;
 
