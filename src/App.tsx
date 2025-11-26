@@ -1,5 +1,6 @@
 import { RotateCw, X } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Views
 import Dashboard from './views/Dashboard';
@@ -8,6 +9,7 @@ import ReviewSession from './views/ReviewSession';
 import SettingsView from './views/SettingsView';
 import CategoryManager from './views/CategoryManager';
 import AIAnalysisView from './views/AIAnalysisView';
+import AuthView from './views/AuthView';
 
 // Components
 import NavBar from './components/NavBar';
@@ -15,8 +17,10 @@ import AnalyticsModal from './components/AnalyticsModal';
 
 const MainLayout = () => {
   const { loading, view, toast, showAnalytics, setShowAnalytics, previewImage, setPreviewImage } = useApp();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  if (loading) {
+  // 如果认证正在加载或应用正在加载,显示加载界面
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-indigo-600">
         <RotateCw className="w-10 h-10 animate-spin mb-4" />
@@ -24,6 +28,11 @@ const MainLayout = () => {
         <p className="text-xs text-gray-400 mt-2">支持海量存储模式</p>
       </div>
     );
+  }
+
+  // 如果用户未认证,显示登录页面
+  if (!isAuthenticated) {
+    return <AuthView />;
   }
 
   return (
@@ -63,8 +72,10 @@ const MainLayout = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainLayout />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <MainLayout />
+      </AppProvider>
+    </AuthProvider>
   );
 }

@@ -4,6 +4,24 @@ export interface CurveProfile {
     intervals: number[];
     isDefault?: boolean;
   }
+
+  // 用户认证相关接口
+  export interface User {
+    id: string;
+    email: string;
+    email_confirmed_at?: string;
+    user_metadata?: Record<string, any>;
+  }
+
+  export interface AuthContextType {
+    user: User | null;
+    session: any;
+    loading: boolean;
+    signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+    signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+    signOut: () => Promise<void>;
+    isAuthenticated: boolean;
+  }
   
   export interface Note {
     id: string;

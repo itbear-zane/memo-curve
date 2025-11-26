@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain, RefreshCw, LogOut, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import dbHelper, { STORE_NOTES, STORE_CATS, STORE_SETTINGS } from '../utils/database';
 import { generateId } from '../utils/helper_functions';
 import type { CurveProfile } from '../types';
@@ -9,6 +10,7 @@ import { refreshProviderKey } from '../utils/aiKeyService';
 
 const SettingsView = () => {
   const { settings, saveSettingsToDB, setView, showToast, handleExportData, handleImportData, requestNotificationPermission } = useApp();
+  const { user, signOut } = useAuth();
   const [editedCurves, setEditedCurves] = useState<CurveProfile[]>(settings.curveProfiles);
   const [isDirty, setIsDirty] = useState(false);
   const [quota, setQuota] = useState<{ usage: number, quota: number } | null>(null);
@@ -93,6 +95,14 @@ const SettingsView = () => {
       showToast('刷新失败', 'error');
     } finally {
       setIsRefreshingKey(false);
+    }
+  };
+
+  // 处理登出
+  const handleSignOut = async () => {
+    if (confirm('确定要退出登录吗？')) {
+      await signOut();
+      showToast('已退出登录');
     }
   };
 
@@ -463,6 +473,28 @@ const SettingsView = () => {
                 </button>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* 用户账户信息 */}
+        <section className="bg-white p-4 rounded-xl shadow-sm">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <User className="w-5 h-5 text-indigo-500" /> 账户信息
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="text-sm text-gray-600">当前用户</p>
+                <p className="text-sm font-medium text-gray-800 mt-1">{user?.email || '未登录'}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="w-full py-2.5 flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
+            >
+              <LogOut className="w-4 h-4" />
+              退出登录
+            </button>
           </div>
         </section>
 

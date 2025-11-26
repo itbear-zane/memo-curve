@@ -1,15 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase 配置
-// 注意: 这些是公开的匿名密钥,可以安全地暴露在前端代码中
-const SUPABASE_URL = 'https://vgudakghzlptkieqozzj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZndWRha2doemxwdGtpZXFvenpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMjU4MjMsImV4cCI6MjA3OTcwMTgyM30.2iyfiTiOYZf0Q_-sbppl0vSHYq-spZ7FD-dXCd4l1oQ';
+// Supabase 配置 - 从环境变量读取
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// 创建 Supabase 客户端
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Supabase 配置缺失: 请检查环境变量 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY');
+}
+
+// 创建 Supabase 客户端,启用认证功能
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: false, // 本应用不需要用户认证
-    autoRefreshToken: false,
+    persistSession: true, // 启用会话持久化
+    autoRefreshToken: true, // 启用自动刷新令牌
+    detectSessionInUrl: true, // 检测 URL 中的会话信息(用于邮箱确认等)
+    storage: localStorage, // 使用 localStorage 存储会话
   },
 });
 
@@ -29,9 +34,17 @@ export interface AIApiKeyConfig {
 
 /**
  * 从 Supabase 获取所有激活的 AI API 密钥配置
+ * 需要用户认证才能访问
  */
 export async function fetchAIApiKeys(): Promise<AIApiKeyConfig[]> {
   try {
+    // 检查用户是否已认证
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('用户未登录,无法获取 AI API 密钥');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('ai_api_keys')
       .select('*')
@@ -52,11 +65,19 @@ export async function fetchAIApiKeys(): Promise<AIApiKeyConfig[]> {
 
 /**
  * 根据提供商获取对应的 API 密钥配置
+ * 需要用户认证才能访问
  */
 export async function fetchAIApiKeyByProvider(
   provider: 'deepseek' | 'openai' | 'openrouter'
 ): Promise<AIApiKeyConfig | null> {
   try {
+    // 检查用户是否已认证
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('用户未登录,无法获取 AI API 密钥');
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('ai_api_keys')
       .select('*')
