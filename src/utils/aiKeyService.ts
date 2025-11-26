@@ -22,11 +22,12 @@ export async function loadAIKeysFromSupabase(
     const updatedAiConfig = { ...currentSettings.aiConfig };
 
     // 更新 DeepSeek 配置
+    // 注意：只从 Supabase 同步 API Key 和 baseURL，保留用户在本地选择的 model
     if (deepseekConfig) {
       updatedAiConfig.deepseek = {
         baseURL: deepseekConfig.base_url || updatedAiConfig.deepseek.baseURL,
         apiKey: deepseekConfig.api_key || updatedAiConfig.deepseek.apiKey,
-        model: deepseekConfig.model || updatedAiConfig.deepseek.model,
+        model: updatedAiConfig.deepseek.model, // 保留本地配置的模型
       };
       console.log('✓ DeepSeek 密钥已加载');
     }
@@ -36,7 +37,7 @@ export async function loadAIKeysFromSupabase(
       updatedAiConfig.openai = {
         baseURL: openaiConfig.base_url || updatedAiConfig.openai.baseURL,
         apiKey: openaiConfig.api_key || updatedAiConfig.openai.apiKey,
-        model: openaiConfig.model || updatedAiConfig.openai.model,
+        model: updatedAiConfig.openai.model, // 保留本地配置的模型
       };
       console.log('✓ OpenAI 密钥已加载');
     }
@@ -46,7 +47,7 @@ export async function loadAIKeysFromSupabase(
       updatedAiConfig.openrouter = {
         baseURL: openrouterConfig.base_url || updatedAiConfig.openrouter.baseURL,
         apiKey: openrouterConfig.api_key || updatedAiConfig.openrouter.apiKey,
-        model: openrouterConfig.model || updatedAiConfig.openrouter.model,
+        model: updatedAiConfig.openrouter.model, // 保留本地配置的模型
         siteUrl: openrouterConfig.site_url || updatedAiConfig.openrouter.siteUrl,
         siteName: openrouterConfig.site_name || updatedAiConfig.openrouter.siteName,
       };
@@ -86,26 +87,27 @@ export async function refreshProviderKey(
     const updatedAiConfig = { ...currentSettings.aiConfig };
 
     // 根据提供商更新对应配置
+    // 注意：只从 Supabase 同步 API Key 和 baseURL，保留用户在本地选择的 model
     switch (provider) {
       case 'deepseek':
         updatedAiConfig.deepseek = {
           baseURL: config.base_url || updatedAiConfig.deepseek.baseURL,
           apiKey: config.api_key || updatedAiConfig.deepseek.apiKey,
-          model: config.model || updatedAiConfig.deepseek.model,
+          model: updatedAiConfig.deepseek.model, // 保留本地配置的模型
         };
         break;
       case 'openai':
         updatedAiConfig.openai = {
           baseURL: config.base_url || updatedAiConfig.openai.baseURL,
           apiKey: config.api_key || updatedAiConfig.openai.apiKey,
-          model: config.model || updatedAiConfig.openai.model,
+          model: updatedAiConfig.openai.model, // 保留本地配置的模型
         };
         break;
       case 'openrouter':
         updatedAiConfig.openrouter = {
           baseURL: config.base_url || updatedAiConfig.openrouter.baseURL,
           apiKey: config.api_key || updatedAiConfig.openrouter.apiKey,
-          model: config.model || updatedAiConfig.openrouter.model,
+          model: updatedAiConfig.openrouter.model, // 保留本地配置的模型
           siteUrl: config.site_url || updatedAiConfig.openrouter.siteUrl,
           siteName: config.site_name || updatedAiConfig.openrouter.siteName,
         };
