@@ -31,7 +31,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       openrouter: {
         baseURL: 'https://openrouter.ai/api/v1',
         apiKey: '',
-        model: 'openai/gpt-4o',
+        model: 'qwen/qwen3-vl-235b-a22b-instruct',
         siteUrl: '',
         siteName: '',
       },
@@ -118,7 +118,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                   openrouter: {
                     baseURL: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.baseURL || 'https://openrouter.ai/api/v1') : 'https://openrouter.ai/api/v1',
                     apiKey: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.apiKey || '') : '',
-                    model: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.model || 'openai/gpt-4o') : 'openai/gpt-4o',
+                    model: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.model || 'qwen/qwen3-vl-235b-a22b-instruct') : 'qwen/qwen3-vl-235b-a22b-instruct',
                     siteUrl: oldConfig.siteUrl || '',
                     siteName: oldConfig.siteName || '',
                   },
