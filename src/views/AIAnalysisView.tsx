@@ -9,7 +9,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
 const AIAnalysisView = () => {
-  const { aiAnalysisNote, setView, settings, handleUpdateNote } = useApp();
+  const { aiAnalysisNote, setView, settings, handleUpdateNote, categories } = useApp();
   const [analysis, setAnalysis] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +67,10 @@ const AIAnalysisView = () => {
 
       setIsStreaming(true);
 
+      // Get category and curve information
+      const category = categories.find(c => c.id === aiAnalysisNote.categoryId);
+      const curve = settings.curveProfiles.find(c => c.id === aiAnalysisNote.curveId);
+
       // Build messages with multimodal support
       const userMessageContent: any[] = [
         {
@@ -75,6 +79,8 @@ const AIAnalysisView = () => {
 
 笔记标题：${aiAnalysisNote.title}
 笔记内容：${aiAnalysisNote.content}
+分类：${category?.name || '未分类'}
+遗忘曲线：${curve?.name || '默认曲线'}${curve ? ` (复习间隔: ${curve.intervals.join(', ')} 天)` : ''}
 创建时间：${new Date(aiAnalysisNote.createdAt).toLocaleDateString('zh-CN')}
 当前复习阶段：第${aiAnalysisNote.stage}次复习
 下次复习时间：${new Date(aiAnalysisNote.nextReviewDate).toLocaleDateString('zh-CN')}`
@@ -108,17 +114,19 @@ const AIAnalysisView = () => {
             content: `你是一个专业的笔记分析助手,专门帮助高三学生用户分析学习笔记。
 
 请分析用户提供的笔记内容,并给出：
-1. 主要学习主题和关键词
-2. 学习建议和改进方向
-3. 复习计划建议（基于艾宾浩斯遗忘曲线）
-4. 相关知识点扩展建议
+1. 找出用户的这篇笔记主要是在学习什么，分辨出用户标记的犯错误的地方。错误的点如果有图片，用户会一般会用红色笔标注来。一篇笔记中，只分析用户重点标注的点；如果没有重点标注才都分析一遍。（简短）
+2. 针对用户犯错误的地方仔细分析，要非常具体地结合每个题目指出用户犯错的点（可以长一点）
+3. 针对遗忘曲线和当前第几次复习，如果发现已经过期，则给出复习建议；否则就加粗提醒一下下次复习时间。
 
 如果笔记中包含图片，请：
 - 仔细识别和分析图片中的文字、公式、图表等内容
-- 结合图片内容给出更精准的分析建议
+- 结合图片内容给出用户犯错的关键点是什么以及如何改正
 - 指出图片中的重点知识点和易错点
 
-请用中文回复，保持专业且友好的语气。使用清晰的段落结构，适当使用表情符号增强可读性。`
+对于可能的公式，必须用latex格式，以方便渲染为可读性高的公式。
+请用中文回复，尽可能的简洁。
+保持专业且非常友好、充满鼓励的语气。
+使用清晰的段落结构，更多地使用表情符号增强可读性。`
           },
           {
             role: 'user',
@@ -126,7 +134,7 @@ const AIAnalysisView = () => {
           }
         ],
         stream: true,
-        max_tokens: 1024,
+        max_tokens: 2048,
         temperature: 0.7,
       });
 

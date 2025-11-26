@@ -335,7 +335,8 @@ const SettingsView = () => {
                         <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
                       </optgroup>
                       <optgroup label="Qwen">
-                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
+                        <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
+                        <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
                         <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
                         <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
                         <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
