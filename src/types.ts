@@ -23,6 +23,17 @@ export interface CurveProfile {
     isAuthenticated: boolean;
   }
   
+  /**
+   * 多Agent分析结果
+   */
+  export interface MultiAgentAnalysisResult {
+    intent: string;
+    original: string;
+    correction: string;
+    summary: string;
+    reviewPassed: boolean;
+  }
+  
   export interface Note {
     id: string;
     title: string;
@@ -35,7 +46,7 @@ export interface CurveProfile {
     stage: number;
     reviewHistory: { date: number; action: 'remembered' | 'forgot' }[];
     aiAnalysis?: {
-      content: string;
+      content: MultiAgentAnalysisResult;
       generatedAt: number;
     };
   }

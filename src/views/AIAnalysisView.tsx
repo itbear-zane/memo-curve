@@ -1,27 +1,53 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Brain, Sparkles, Loader2 } from 'lucide-react';
-import OpenAI from 'openai';
+import { ArrowLeft, Brain, Sparkles, Loader2, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import { multiAgentAnalysis } from '../utils/multiAgentService';
+import type { MultiAgentAnalysisResult } from '../types';
+
+interface AnalysisStep {
+  id: string;
+  title: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  message?: string;
+  timestamp?: number;
+  streamContent?: string;  // 流式输出内容
+}
 
 const AIAnalysisView = () => {
   const { aiAnalysisNote, setAIAnalysisNote, setView, settings, handleUpdateNote, categories } = useApp();
-  const [analysis, setAnalysis] = useState('');
+  const [analysis, setAnalysis] = useState<MultiAgentAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([]);
+  const [streamingContent, setStreamingContent] = useState<Record<string, string>>({});
   const analysisRef = useRef<HTMLDivElement>(null);
+  const stepsRef = useRef<HTMLDivElement>(null);
 
   const analyzeNote = useCallback(async () => {
     if (!aiAnalysisNote) return;
 
     setIsLoading(true);
     setError(null);
-    setAnalysis('');
+    setAnalysis(null);
+    setProgressMessage('');
+    setStreamingContent({});
+    
+    // 初始化分析步骤
+    const initialSteps: AnalysisStep[] = [
+      { id: 'intent', title: '🎯 用户意图分析', status: 'pending' },
+      { id: 'review', title: '📋 意图审查', status: 'pending' },
+      { id: 'original', title: '📝 原始记录分析', status: 'pending' },
+      { id: 'correction', title: '✅ 订正答案分析', status: 'pending' },
+      { id: 'summary', title: '✨ 生成总结报告', status: 'pending' },
+    ];
+    setAnalysisSteps(initialSteps);
 
     try {
       const { aiConfig } = settings;
@@ -43,27 +69,6 @@ const AIAnalysisView = () => {
       if (!currentConfig.baseURL || currentConfig.baseURL.trim() === '') {
         throw new Error('请先在设置中配置 API URL');
       }
-
-      // Create client with user configuration
-      const clientConfig: any = {
-        baseURL: currentConfig.baseURL,
-        apiKey: currentConfig.apiKey,
-        dangerouslyAllowBrowser: true, // Required for browser environment
-      };
-
-      // Add OpenRouter specific headers
-      if (aiConfig.provider === 'openrouter') {
-        const openrouterConfig = aiConfig.openrouter as any;
-        clientConfig.defaultHeaders = {};
-        if (openrouterConfig.siteUrl) {
-          clientConfig.defaultHeaders['HTTP-Referer'] = openrouterConfig.siteUrl;
-        }
-        if (openrouterConfig.siteName) {
-          clientConfig.defaultHeaders['X-Title'] = openrouterConfig.siteName;
-        }
-      }
-
-      const client = new OpenAI(clientConfig);
 
       setIsStreaming(true);
 
@@ -91,7 +96,7 @@ const AIAnalysisView = () => {
       if (aiAnalysisNote.images.length > 0) {
         userMessageContent.push({
           type: 'text',
-          text: `\n\n笔记中包含以下 ${aiAnalysisNote.images.length} 张图片，请仔细分析图片内容：`
+          text: `\n\n笔记中包含以下 ${aiAnalysisNote.images.length} 张图片：`
         });
         
         aiAnalysisNote.images.forEach((image) => {
@@ -105,80 +110,163 @@ const AIAnalysisView = () => {
         });
       }
 
-//       const system_prompt = `你是一个专业的笔记分析助手,专门帮助高三学生用户分析学习笔记。
-
-// 请分析用户提供的笔记内容,并给出：
-// 1. 找出用户的这篇笔记主要是在学习什么，分辨出用户标记的犯错误的地方（即用户拍的这个笔记的错题是哪一道或哪几道，用户没做错的题目不需要分析）。错误的点如果有图片，用户会一般会用红色笔在旁边标注。一篇笔记中，只分析用户重点标注的点；如果没有重点标注才都分析一遍。（简短）
-//     1.1 如果笔记中包含图片，请：
-//         - 仔细识别和分析图片中的文字、公式、图表等内容
-//         - 结合图片内容给出用户犯错的关键点是什么以及如何改正
-//         - 指出图片中的重点知识点和易错点
-// 2. 针对用户犯错误的地方仔细分析，要非常具体地结合每个题目指出用户犯错的点（可以长一点，逻辑清晰，讲解通顺易懂）
-// 3. 针对遗忘曲线和当前第几次复习，如果发现已经过期，则给出复习建议；否则就加粗提醒一下下次复习时间（提醒尽量简洁，列举一下下次复习需要注意的地方）。
-
-// 对于可能的公式，必须用latex格式，以方便渲染为可读性高的公式。
-// 请用中文回复，尽可能的简洁。
-// 保持专业且非常友好、充满鼓励的语气，鼓励的话只需简短的一两句话，但又切中要害。
-// 使用清晰的段落结构，更多地使用表情符号增强可读性。`
-
-      const system_prompt = `1. 用户意图分析：用户拍的这个照片里面，到底是哪道题或哪几道题目做错了。用户本身可能做对了，但是不理解题目，所以也在旁边订正了。错误的点如果有图片，用户会一般会用红色笔在旁边标注。一篇笔记中，只分析用户重点标注的点；如果没有重点标注才都分析一遍。对于选择题，可能是单选或多选，多选可能是半做对--选对了但不全，多选题做对了的选项不需要分析（如果后续选项没用到这个推导时）。
-
-2. 分析用户在旁边坐的原始记录，即用户做题时的记录，看看哪里错了。注意分清楚是原始记录还是看过答案后的笔记。
-
-3. 分析用户在错题旁边订正的答案，这个往往是对的，需要利用好。
-
-4. 给出用户一个总结，一道一道给出这道题为什么做错了，正确的解题思路是什么，以及如何避免犯类似的错误。分析一下这个题目在考题中是否是高频出现，如果很难，比较小众，就告诉用户不用着急；如果容易，则提醒用户着重注意，应该经常复习。
-
-5. 针对遗忘曲线和当前第几次复习，如果发现已经过期，则给出一些压力的话（语气稍重）；否则就加粗提醒一下下次复习时间，提醒尽量简洁。‘第0次复习’意味着今天刚添加的笔记，不需要强调。
-
-整个回复的要求：
-1. 请用中文回复，使用清晰的段落结构，更多地使用表情符号增强可读性，尽可能的简洁。
-2. 不管是用户手写的公式还是打印的公式，都应该仔细辨别字母和数字，不要把题目都看错了。
-3. 保持专业且非常友好、充满鼓励的语气，不需要具体写鼓励的话。
-4. 对于可能的公式，必须用latex格式，以方便渲染为可读性高的公式。
-`;
-
-      // Create the streaming completion
-      const stream = await client.chat.completions.create({
+      // Prepare config for multi-agent analysis
+      const analysisConfig = {
+        baseURL: currentConfig.baseURL,
+        apiKey: currentConfig.apiKey,
         model: currentConfig.model || 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: system_prompt
-          },
-          {
-            role: 'user',
-            content: userMessageContent
+        provider: aiConfig.provider,
+      };
+
+      // Add OpenRouter specific configs
+      if (aiConfig.provider === 'openrouter') {
+        const openrouterConfig = aiConfig.openrouter as any;
+        (analysisConfig as any).siteUrl = openrouterConfig.siteUrl;
+        (analysisConfig as any).siteName = openrouterConfig.siteName;
+      }
+
+      // Use multi-agent analysis
+      const result = await multiAgentAnalysis(
+        analysisConfig,
+        aiAnalysisNote,
+        userMessageContent,
+        category?.name || '未分类',
+        curve?.name || '默认曲线',
+        curve?.intervals || [],
+        (message) => {
+          setProgressMessage(message);
+          
+          // 更新步骤状态
+          setAnalysisSteps(prev => {
+            const updated = [...prev];
+            
+            // 根据消息更新对应步骤的状态
+            if (message.includes('意图分析')) {
+              const intentIdx = updated.findIndex(s => s.id === 'intent');
+              if (intentIdx !== -1) {
+                updated[intentIdx] = {
+                  ...updated[intentIdx],
+                  status: message.includes('完成') ? 'completed' : 'processing',
+                  message: message,
+                  timestamp: Date.now(),
+                };
+              }
+            } else if (message.includes('审查')) {
+              const reviewIdx = updated.findIndex(s => s.id === 'review');
+              if (reviewIdx !== -1) {
+                updated[reviewIdx] = {
+                  ...updated[reviewIdx],
+                  status: message.includes('通过') ? 'completed' : message.includes('未通过') ? 'failed' : 'processing',
+                  message: message,
+                  timestamp: Date.now(),
+                };
+              }
+            } else if (message.includes('原始记录') && message.includes('订正')) {
+              // 开始并行分析原始记录和订正答案
+              const originalIdx = updated.findIndex(s => s.id === 'original');
+              const correctionIdx = updated.findIndex(s => s.id === 'correction');
+              if (originalIdx !== -1) {
+                updated[originalIdx] = {
+                  ...updated[originalIdx],
+                  status: 'processing',
+                  message: '正在分析原始记录...',
+                  timestamp: Date.now(),
+                };
+              }
+              if (correctionIdx !== -1) {
+                updated[correctionIdx] = {
+                  ...updated[correctionIdx],
+                  status: 'processing',
+                  message: '正在分析订正答案...',
+                  timestamp: Date.now(),
+                };
+              }
+            } else if (message.includes('原始记录') && message.includes('完成')) {
+              // 原始记录和订正分析完成
+              const originalIdx = updated.findIndex(s => s.id === 'original');
+              const correctionIdx = updated.findIndex(s => s.id === 'correction');
+              if (originalIdx !== -1) {
+                updated[originalIdx] = {
+                  ...updated[originalIdx],
+                  status: 'completed',
+                  message: message,
+                  timestamp: Date.now(),
+                };
+              }
+              if (correctionIdx !== -1) {
+                updated[correctionIdx] = {
+                  ...updated[correctionIdx],
+                  status: 'completed',
+                  message: '订正答案分析完成',
+                  timestamp: Date.now(),
+                };
+              }
+            } else if (message.includes('总结')) {
+              const summaryIdx = updated.findIndex(s => s.id === 'summary');
+              if (summaryIdx !== -1) {
+                updated[summaryIdx] = {
+                  ...updated[summaryIdx],
+                  status: message.includes('完成') ? 'completed' : 'processing',
+                  message: message,
+                  timestamp: Date.now(),
+                };
+              }
+            }
+            
+            return updated;
+          });
+          
+          // Auto-scroll steps to bottom
+          if (stepsRef.current) {
+            stepsRef.current.scrollTop = stepsRef.current.scrollHeight;
           }
-        ],
-        stream: true,
-        max_tokens: 5196,
-        temperature: 0.5,
-      });
-
-      // Process the stream
-      let fullContent = '';
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullContent += content;
-          setAnalysis(fullContent);
-
+        },
+        (agentId, content) => {
+          // 处理agent stream输出到AI分析结果模块
+          setStreamingContent(prev => ({
+            ...prev,
+            [agentId]: content
+          }));
+          
+          setAnalysisSteps(prev => {
+            const updated = [...prev];
+            const idx = updated.findIndex(s => s.id === agentId);
+            if (idx !== -1) {
+              updated[idx] = {
+                ...updated[idx],
+                status: 'processing',
+              };
+            }
+            return updated;
+          });
+          
           // Auto-scroll to bottom
           if (analysisRef.current) {
             analysisRef.current.scrollTop = analysisRef.current.scrollHeight;
           }
         }
-      }
+      );
 
+      // 流式输出完成后，确保所有步骤都标记为完成
+      setAnalysisSteps(prev => {
+        return prev.map(step => {
+          if (step.status === 'processing') {
+            return { ...step, status: 'completed' };
+          }
+          return step;
+        });
+      });
+
+      setAnalysis(result);
       setIsStreaming(false);
+      setProgressMessage('');
 
       // Save analysis result to database
       try {
         const updatedNote = {
           ...aiAnalysisNote,
           aiAnalysis: {
-            content: fullContent,
+            content: result,
             generatedAt: Date.now(),
           },
         };
@@ -191,10 +279,11 @@ const AIAnalysisView = () => {
       console.error('AI 分析失败:', err);
       setError(err instanceof Error ? err.message : '分析失败，请检查网络连接和 API 密钥');
       setIsStreaming(false);
+      setProgressMessage('');
     } finally {
       setIsLoading(false);
     }
-  }, [aiAnalysisNote, settings, handleUpdateNote]);
+  }, [aiAnalysisNote, settings, handleUpdateNote, categories]);
 
   // Use ref to track if analysis has been started for this note
   const hasAnalyzedRef = useRef<string | null>(null);
@@ -207,7 +296,13 @@ const AIAnalysisView = () => {
 
     // Check if there's a cached analysis result
     if (aiAnalysisNote.aiAnalysis?.content) {
-      setAnalysis(aiAnalysisNote.aiAnalysis.content);
+      // 检查content是否为对象类型(新格式)
+      if (typeof aiAnalysisNote.aiAnalysis.content === 'object') {
+        setAnalysis(aiAnalysisNote.aiAnalysis.content);
+      } else {
+        // 如果是旧的string类型,则重新分析
+        hasAnalyzedRef.current = null;
+      }
       hasAnalyzedRef.current = aiAnalysisNote.id;
     } else if (hasAnalyzedRef.current !== aiAnalysisNote.id) {
       // Only start analysis once when view opens for a new note without cache
@@ -239,9 +334,9 @@ const AIAnalysisView = () => {
           <h2 className="font-bold text-lg">AI 笔记分析</h2>
         </div>
         {isStreaming && (
-          <div className="flex items-center gap-1 text-sm text-indigo-600">
+          <div className="flex items-center gap-2 text-sm text-indigo-600">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>分析中...</span>
+            <span>{progressMessage || '分析中...'}</span>
           </div>
         )}
       </div>
@@ -273,12 +368,54 @@ const AIAnalysisView = () => {
 
       {/* Content */}
       <div className="px-4 mt-4">
-        {isLoading && !analysis && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-            <div className="flex flex-col items-center justify-center text-gray-500">
-              <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-600" />
-              <p className="font-medium">正在启动 AI 分析...</p>
-              <p className="text-xs text-gray-400 mt-2">这可能需要几秒钟</p>
+        {/* 分析流程展示 */}
+        {(isLoading || analysisSteps.length > 0) && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-3 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <Brain className="w-4 h-4 text-indigo-600" />
+                分析流程
+              </h3>
+            </div>
+            <div ref={stepsRef} className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              {analysisSteps.map((step, index) => (
+                <div key={step.id} className="flex gap-3 items-start">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {step.status === 'completed' && (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    )}
+                    {step.status === 'processing' && (
+                      <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+                    )}
+                    {step.status === 'failed' && (
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    )}
+                    {step.status === 'pending' && (
+                      <Circle className="w-5 h-5 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-medium text-sm ${
+                        step.status === 'completed' ? 'text-green-700' :
+                        step.status === 'processing' ? 'text-indigo-700' :
+                        step.status === 'failed' ? 'text-red-700' :
+                        'text-gray-400'
+                      }`}>
+                        {step.title}
+                      </span>
+                      {step.timestamp && (
+                        <span className="text-xs text-gray-400">
+                          {new Date(step.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    {step.message && (
+                      <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{step.message}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -311,7 +448,7 @@ const AIAnalysisView = () => {
           </div>
         )}
 
-        {analysis && (
+        {(analysis || Object.keys(streamingContent).length > 0) && (
           <div className="bg-gradient-to-br from-slate-50/50 via-white to-blue-50/20 rounded-2xl shadow-lg border border-slate-200/60 overflow-hidden backdrop-blur-sm">
             <div className="relative bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 p-5 border-b border-indigo-200/30">
               <div className="absolute inset-0 bg-white/10"></div>
@@ -339,48 +476,190 @@ const AIAnalysisView = () => {
             </div>
             <div
               ref={analysisRef}
-              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-800 prose-strong:font-semibold prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-blockquote:border-l-indigo-500 prose-blockquote:text-slate-600 prose-table:text-sm"
+              className="prose prose-sm max-w-none p-6 text-slate-600 leading-relaxed bg-white/80 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-slate-800 prose-strong:font-semibold prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-blockquote:border-l-indigo-500 prose-blockquote:text-slate-600 prose-table:text-sm max-h-[600px] overflow-y-auto"
             >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                components={{
-                  table: ({ children }) => (
-                    <div className="overflow-x-auto my-4">
-                      <table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg">
-                        {children}
-                      </table>
+              {/* 显示流式输出内容 */}
+              {isStreaming && (
+                <div className="space-y-6">
+                  {streamingContent.intent && (
+                    <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100">
+                      <h2 className="!text-lg !font-bold !mb-3 flex items-center gap-2 !text-blue-800">
+                        🎯 意图识别
+                        {analysisSteps.find(s => s.id === 'intent')?.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                        )}
+                      </h2>
+                      <div className="prose-headings:!text-blue-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {streamingContent.intent}
+                        </ReactMarkdown>
+                      </div>
                     </div>
-                  ),
-                  thead: ({ children }) => (
-                    <thead className="bg-slate-50">{children}</thead>
-                  ),
-                  tbody: ({ children }) => (
-                    <tbody className="bg-white divide-y divide-slate-100">{children}</tbody>
-                  ),
-                  th: ({ children }) => (
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      {children}
-                    </th>
-                  ),
-                  td: ({ children }) => (
-                    <td className="px-4 py-2 text-sm text-slate-600">{children}</td>
-                  ),
-                  code: ({ inline, children, ...props }: any) => {
-                    return inline ? (
-                      <code className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm" {...props}>
-                        {children}
-                      </code>
-                    ) : (
-                      <code className="block bg-slate-800 text-slate-100 p-4 rounded-lg overflow-x-auto" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                }}
-              >
-                {analysis}
-              </ReactMarkdown>
+                  )}
+                  
+                  {streamingContent.intent && streamingContent.review && (
+                    <hr className="my-6 border-slate-200" />
+                  )}
+                  
+                  {streamingContent.review && (
+                    <div className="p-4 rounded-lg bg-green-50/50 border border-green-100">
+                      <h2 className="!text-lg !font-bold !mb-3 flex items-center gap-2 !text-green-800">
+                        📋 意图审查
+                        {analysisSteps.find(s => s.id === 'review')?.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
+                        )}
+                      </h2>
+                      <div className="prose-headings:!text-green-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {streamingContent.review}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {streamingContent.review && streamingContent.original && (
+                    <hr className="my-6 border-slate-200" />
+                  )}
+                  
+                  {streamingContent.original && (
+                    <div className="p-4 rounded-lg bg-amber-50/50 border border-amber-100">
+                      <h2 className="!text-lg !font-bold !mb-3 flex items-center gap-2 !text-amber-800">
+                        📝 原始记录分析
+                        {analysisSteps.find(s => s.id === 'original')?.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                        )}
+                      </h2>
+                      <div className="prose-headings:!text-amber-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {streamingContent.original}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {streamingContent.original && streamingContent.correction && (
+                    <hr className="my-6 border-slate-200" />
+                  )}
+                  
+                  {streamingContent.correction && (
+                    <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100">
+                      <h2 className="!text-lg !font-bold !mb-3 flex items-center gap-2 !text-emerald-800">
+                        ✅ 订正解析
+                        {analysisSteps.find(s => s.id === 'correction')?.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                        )}
+                      </h2>
+                      <div className="prose-headings:!text-emerald-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {streamingContent.correction}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {streamingContent.correction && streamingContent.summary && (
+                    <hr className="my-6 border-slate-200" />
+                  )}
+                  
+                  {streamingContent.summary && (
+                    <div className="p-4 rounded-lg bg-purple-50/50 border border-purple-100">
+                      <h2 className="!text-lg !font-bold !mb-3 flex items-center gap-2 !text-purple-800">
+                        💡 整体总结
+                        {analysisSteps.find(s => s.id === 'summary')?.status === 'processing' && (
+                          <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                        )}
+                      </h2>
+                      <div className="prose-headings:!text-purple-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {streamingContent.summary}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* 显示最终结果 - 复用流式输出的样式 */}
+              {!isStreaming && analysis && (
+                <div className="space-y-6">
+                  <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100">
+                    <h2 className="!text-lg !font-bold !mb-3 !text-blue-800">
+                      🎯 意图识别
+                    </h2>
+                    <div className="prose-headings:!text-blue-800">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {analysis.intent}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                  
+                  <hr className="my-6 border-slate-200" />
+                  
+                  <div className="p-4 rounded-lg bg-amber-50/50 border border-amber-100">
+                    <h2 className="!text-lg !font-bold !mb-3 !text-amber-800">
+                      📝 原始记录分析
+                    </h2>
+                    <div className="prose-headings:!text-amber-800">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {analysis.original}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                  
+                  <hr className="my-6 border-slate-200" />
+                  
+                  <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100">
+                    <h2 className="!text-lg !font-bold !mb-3 !text-emerald-800">
+                      ✅ 订正解析
+                    </h2>
+                    <div className="prose-headings:!text-emerald-800">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {analysis.correction}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                  
+                  <hr className="my-6 border-slate-200" />
+                  
+                  <div className="p-4 rounded-lg bg-purple-50/50 border border-purple-100">
+                    <h2 className="!text-lg !font-bold !mb-3 !text-purple-800">
+                      💡 总结建议
+                    </h2>
+                    <div className="prose-headings:!text-purple-800">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {analysis.summary}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-5 border-t border-slate-200/50 bg-gradient-to-br from-slate-50/30 to-blue-50/20">
               <button
