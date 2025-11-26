@@ -88,7 +88,7 @@ const AIAnalysisView = () => {
           text: `\n\n笔记中包含以下 ${aiAnalysisNote.images.length} 张图片，请仔细分析图片内容：`
         });
         
-        aiAnalysisNote.images.forEach((image, index) => {
+        aiAnalysisNote.images.forEach((image) => {
           userMessageContent.push({
             type: 'image_url',
             image_url: {
