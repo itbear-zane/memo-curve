@@ -67,6 +67,38 @@ const AIAnalysisView = () => {
 
       setIsStreaming(true);
 
+      // Build messages with multimodal support
+      const userMessageContent: any[] = [
+        {
+          type: 'text',
+          text: `请分析以下笔记内容：
+
+笔记标题：${aiAnalysisNote.title}
+笔记内容：${aiAnalysisNote.content}
+创建时间：${new Date(aiAnalysisNote.createdAt).toLocaleDateString('zh-CN')}
+当前复习阶段：第${aiAnalysisNote.stage}次复习
+下次复习时间：${new Date(aiAnalysisNote.nextReviewDate).toLocaleDateString('zh-CN')}`
+        }
+      ];
+
+      // Add images if present
+      if (aiAnalysisNote.images.length > 0) {
+        userMessageContent.push({
+          type: 'text',
+          text: `\n\n笔记中包含以下 ${aiAnalysisNote.images.length} 张图片，请仔细分析图片内容：`
+        });
+        
+        aiAnalysisNote.images.forEach((image, index) => {
+          userMessageContent.push({
+            type: 'image_url',
+            image_url: {
+              url: image,
+              detail: 'auto'
+            }
+          });
+        });
+      }
+
       // Create the streaming completion
       const stream = await client.chat.completions.create({
         model: currentConfig.model || 'deepseek-chat',
@@ -81,22 +113,20 @@ const AIAnalysisView = () => {
 3. 复习计划建议（基于艾宾浩斯遗忘曲线）
 4. 相关知识点扩展建议
 
+如果笔记中包含图片，请：
+- 仔细识别和分析图片中的文字、公式、图表等内容
+- 结合图片内容给出更精准的分析建议
+- 指出图片中的重点知识点和易错点
+
 请用中文回复，保持专业且友好的语气。使用清晰的段落结构，适当使用表情符号增强可读性。`
           },
           {
             role: 'user',
-            content: `请分析以下笔记内容：
-
-笔记标题：${aiAnalysisNote.title}
-笔记内容：${aiAnalysisNote.content}
-${aiAnalysisNote.images.length > 0 ? `包含 ${aiAnalysisNote.images.length} 张图片` : ''}
-创建时间：${new Date(aiAnalysisNote.createdAt).toLocaleDateString('zh-CN')}
-当前复习阶段：第${aiAnalysisNote.stage}次复习
-下次复习时间：${new Date(aiAnalysisNote.nextReviewDate).toLocaleDateString('zh-CN')}`
+            content: userMessageContent
           }
         ],
         stream: true,
-        max_tokens: 200,
+        max_tokens: 1024,
         temperature: 0.7,
       });
 
