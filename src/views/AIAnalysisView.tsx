@@ -259,9 +259,14 @@ const AIAnalysisView = () => {
             return updated;
           });
           
-          // Auto-scroll to bottom
+          // 智能自动滚动：仅当用户接近底部时才滚动
           if (analysisRef.current) {
-            analysisRef.current.scrollTop = analysisRef.current.scrollHeight;
+            const { scrollTop, scrollHeight, clientHeight } = analysisRef.current;
+            const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+            // 如果距离底部小于100px，认为用户在查看最新内容，自动滚动
+            if (distanceFromBottom < 100) {
+              analysisRef.current.scrollTop = analysisRef.current.scrollHeight;
+            }
           }
         }
       );
