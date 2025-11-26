@@ -230,7 +230,7 @@ const SettingsView = () => {
                   <select
                     value={aiConfig.provider}
                     onChange={(e) => {
-                      const provider = e.target.value as 'deepseek' | 'openai' | 'openrouter' | 'custom';
+                      const provider = e.target.value as 'deepseek' | 'openai' | 'openrouter';
                       const newAiConfig = { ...aiConfig, provider };
                       setAiConfig(newAiConfig);
                       setIsDirty(true);
@@ -242,7 +242,6 @@ const SettingsView = () => {
                     <option value="deepseek">DeepSeek</option>
                     <option value="openai">OpenAI</option>
                     <option value="openrouter">OpenRouter</option>
-                    <option value="custom">自定义</option>
                   </select>
                 </div>
 
@@ -265,7 +264,7 @@ const SettingsView = () => {
                       // 立即保存设置
                       saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
                     }}
-                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : aiConfig.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : '输入您的自定义 API 端点'}
+                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : 'https://openrouter.ai/api/v1'}
                     className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                   />
                 </div>
@@ -296,7 +295,6 @@ const SettingsView = () => {
                     {aiConfig.provider === 'deepseek' && '获取 DeepSeek API 密钥：https://platform.deepseek.com/'}
                     {aiConfig.provider === 'openai' && '获取 OpenAI API 密钥：https://platform.openai.com/'}
                     {aiConfig.provider === 'openrouter' && '获取 OpenRouter API 密钥：https://openrouter.ai/keys'}
-                    {aiConfig.provider === 'custom' && '输入您的自定义 API 端点密钥'}
                   </p>
                 </div>
 
@@ -360,7 +358,7 @@ const SettingsView = () => {
                         // 立即保存设置
                         saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
                       }}
-                      placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : aiConfig.provider === 'openai' ? 'gpt-4o-mini' : '输入您的模型名称'}
+                      placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'}
                       className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                     />
                   )}
@@ -368,7 +366,6 @@ const SettingsView = () => {
                     {aiConfig.provider === 'deepseek' && '推荐:deepseek-chat, deepseek-reasoner'}
                     {aiConfig.provider === 'openai' && '推荐:gpt-4o, gpt-4o-mini'}
                     {aiConfig.provider === 'openrouter' && '从下拉列表中选择模型'}
-                    {aiConfig.provider === 'custom' && '输入您的模型名称'}
                   </p>
                 </div>
 

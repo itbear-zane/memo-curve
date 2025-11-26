@@ -15,7 +15,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     curveProfiles: DEFAULT_CURVES,
     enableNotifications: false,
     aiConfig: {
-      provider: 'deepseek',
+      provider: 'openrouter',
       enabled: false,
       deepseek: {
         baseURL: 'https://api.deepseek.com',
@@ -33,11 +33,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         model: 'openai/gpt-4o',
         siteUrl: '',
         siteName: '',
-      },
-      custom: {
-        baseURL: '',
-        apiKey: '',
-        model: '',
       },
     },
   });
@@ -107,7 +102,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               migratedSettings = {
                 ...dbSettings,
                 aiConfig: {
-                  provider: oldConfig.provider || 'deepseek',
+                  provider: oldConfig.provider === 'custom' ? 'openrouter' : (oldConfig.provider || 'openrouter'),
                   enabled: oldConfig.enabled || false,
                   deepseek: {
                     baseURL: oldConfig.provider === 'deepseek' ? (oldConfig.baseURL || 'https://api.deepseek.com') : 'https://api.deepseek.com',
@@ -120,16 +115,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                     model: oldConfig.provider === 'openai' ? (oldConfig.model || 'gpt-4o-mini') : 'gpt-4o-mini',
                   },
                   openrouter: {
-                    baseURL: oldConfig.provider === 'openrouter' ? (oldConfig.baseURL || 'https://openrouter.ai/api/v1') : 'https://openrouter.ai/api/v1',
-                    apiKey: oldConfig.provider === 'openrouter' ? (oldConfig.apiKey || '') : '',
-                    model: oldConfig.provider === 'openrouter' ? (oldConfig.model || 'openai/gpt-4o') : 'openai/gpt-4o',
+                    baseURL: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.baseURL || 'https://openrouter.ai/api/v1') : 'https://openrouter.ai/api/v1',
+                    apiKey: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'openrouter' || oldConfig.provider === 'custom' ? (oldConfig.model || 'openai/gpt-4o') : 'openai/gpt-4o',
                     siteUrl: oldConfig.siteUrl || '',
                     siteName: oldConfig.siteName || '',
-                  },
-                  custom: {
-                    baseURL: oldConfig.provider === 'custom' ? (oldConfig.baseURL || '') : '',
-                    apiKey: oldConfig.provider === 'custom' ? (oldConfig.apiKey || '') : '',
-                    model: oldConfig.provider === 'custom' ? (oldConfig.model || '') : '',
                   },
                 }
               };
