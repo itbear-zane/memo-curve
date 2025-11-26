@@ -202,6 +202,25 @@ const AIAnalysisView = () => {
                 };
               }
             } else if (message.includes('总结')) {
+              // 先确保原始记录和订正答案已标记为完成
+              const originalIdx = updated.findIndex(s => s.id === 'original');
+              const correctionIdx = updated.findIndex(s => s.id === 'correction');
+              if (originalIdx !== -1 && updated[originalIdx].status === 'processing') {
+                updated[originalIdx] = {
+                  ...updated[originalIdx],
+                  status: 'completed',
+                  message: '原始记录分析完成',
+                  timestamp: Date.now(),
+                };
+              }
+              if (correctionIdx !== -1 && updated[correctionIdx].status === 'processing') {
+                updated[correctionIdx] = {
+                  ...updated[correctionIdx],
+                  status: 'completed',
+                  message: '订正答案分析完成',
+                  timestamp: Date.now(),
+                };
+              }
               const summaryIdx = updated.findIndex(s => s.id === 'summary');
               if (summaryIdx !== -1) {
                 updated[summaryIdx] = {
