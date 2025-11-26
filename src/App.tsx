@@ -1,4 +1,5 @@
 import { RotateCw, X } from 'lucide-react';
+import { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -16,8 +17,27 @@ import NavBar from './components/NavBar';
 import AnalyticsModal from './components/AnalyticsModal';
 
 const MainLayout = () => {
-  const { loading, view, toast, showAnalytics, setShowAnalytics, previewImage, setPreviewImage } = useApp();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { loading, view, toast, showAnalytics, setShowAnalytics, previewImage, setPreviewImage, showAuthModal, setShowAuthModal, aiAnalysisNote, setAIAnalysisNote, setView: appSetView, onAuthModalClose, settings, saveSettingsToDB } = useApp();
+  const { loading: authLoading, isAuthenticated } = useAuth();
+
+  // 当用户登录成功后,如果有待分析的笔记,自动启用AI功能并跳转到 AI 分析页面
+  useEffect(() => {
+    if (isAuthenticated && aiAnalysisNote) {
+      // 关闭登录弹窗(如果打开着)
+      if (showAuthModal) {
+        setShowAuthModal(false);
+      }
+      
+      // 如果AI功能未启用,自动启用
+      if (!settings.aiConfig.enabled) {
+        const newAiConfig = { ...settings.aiConfig, enabled: true };
+        saveSettingsToDB({ ...settings, aiConfig: newAiConfig });
+      }
+      
+      // 跳转到 AI 分析页面
+      appSetView('ai-analysis');
+    }
+  }, [isAuthenticated, aiAnalysisNote, showAuthModal, settings, setShowAuthModal, appSetView, saveSettingsToDB]);
 
   // 如果认证正在加载或应用正在加载,显示加载界面
   if (loading || authLoading) {
@@ -28,11 +48,6 @@ const MainLayout = () => {
         <p className="text-xs text-gray-400 mt-2">支持海量存储模式</p>
       </div>
     );
-  }
-
-  // 如果用户未认证,显示登录页面
-  if (!isAuthenticated) {
-    return <AuthView />;
   }
 
   return (
@@ -54,6 +69,24 @@ const MainLayout = () => {
 
       {/* Modals */}
       {showAnalytics && <AnalyticsModal onClose={() => setShowAnalytics(false)} />}
+
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <AuthView 
+          isModal={true} 
+          onClose={() => {
+            setShowAuthModal(false);
+            // 如果用户未登录就关闭弹窗,清理待分析的笔记
+            if (!isAuthenticated && aiAnalysisNote) {
+              setAIAnalysisNote(null);
+            }
+            // 如果有自定义的关闭回调，执行它
+            if (onAuthModalClose) {
+              onAuthModalClose();
+            }
+          }}
+        />
+      )}
 
       {previewImage && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70]" onClick={() => setPreviewImage(null)}>

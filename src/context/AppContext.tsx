@@ -45,6 +45,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [aiAnalysisNote, setAIAnalysisNote] = useState<Note | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [onAuthModalClose, setOnAuthModalClose] = useState<(() => void) | undefined>(undefined);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -334,6 +336,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toast, showToast, previewImage, setPreviewImage,
     showAnalytics, setShowAnalytics,
     aiAnalysisNote, setAIAnalysisNote,
+    showAuthModal, setShowAuthModal,
+    onAuthModalClose, setOnAuthModalClose,
     saveNoteToDB, deleteNoteFromDB, saveSettingsToDB,
     handleAddNote, handleUpdateNote, handleDeleteNote, handleReview,
     requestNotificationPermission, handleExportData, handleImportData,

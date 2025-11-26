@@ -9,7 +9,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
 const AIAnalysisView = () => {
-  const { aiAnalysisNote, setView, settings, handleUpdateNote, categories } = useApp();
+  const { aiAnalysisNote, setAIAnalysisNote, setView, settings, handleUpdateNote, categories } = useApp();
   const [analysis, setAnalysis] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +183,7 @@ const AIAnalysisView = () => {
 
   useEffect(() => {
     if (!aiAnalysisNote) {
-      setView('dashboard');
+      // 如果没有待分析的笔记,不做任何操作(由handleBack函数处理跳转)
       return;
     }
 
@@ -200,6 +200,9 @@ const AIAnalysisView = () => {
   }, [aiAnalysisNote?.id]);
 
   const handleBack = () => {
+    // 清理AI分析笔记状态
+    setAIAnalysisNote(null);
+    // 返回到分类页面
     setView('category');
   };
 

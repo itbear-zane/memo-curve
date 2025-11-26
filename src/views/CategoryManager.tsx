@@ -3,12 +3,14 @@ import { ArrowLeft, Edit3, Trash2, GripVertical, TrendingUp, Plus, RotateCw, X, 
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import dbHelper, { STORE_CATS } from '../utils/database';
 import { generateId, getRelativeTime, compressImage } from '../utils/helper_functions';
 import type { Note, Category } from '../types';
 
 const CategoryManager = () => {
-  const { notes, categories, activeCategory, setActiveCategory, setView, setPreviewImage, handleUpdateNote, handleDeleteNote, setCategories, showToast, settings, setAIAnalysisNote } = useApp();
+  const { notes, categories, activeCategory, setActiveCategory, setView, setPreviewImage, handleUpdateNote, handleDeleteNote, setCategories, showToast, settings, setAIAnalysisNote, setShowAuthModal } = useApp();
+  const { isAuthenticated } = useAuth();
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
@@ -225,8 +227,17 @@ const CategoryManager = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    // 设置要分析的笔记
                     setAIAnalysisNote(n);
-                    setView('ai-analysis');
+                    
+                    // 检查是否已登录
+                    if (!isAuthenticated) {
+                      // 未登录:显示登录弹窗,登录成功后会自动跳转到AI分析页面
+                      setShowAuthModal(true);
+                    } else {
+                      // 已登录:直接跳转到AI分析页面
+                      setView('ai-analysis');
+                    }
                   }}
                   className="group relative bg-gradient-to-br from-indigo-400 to-purple-400 hover:from-indigo-500 hover:to-purple-500 p-2.5 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   title="AI 分析笔记"

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserPlus, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, AlertCircle, X } from 'lucide-react';
 
-export default function AuthView() {
+export default function AuthView({ isModal = false, onClose }: { isModal?: boolean; onClose?: () => void }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,7 +11,9 @@ export default function AuthView() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, isAuthenticated } = useAuth();
+
+  // 注意: 登录成功后的自动跳转由 App.tsx 统一处理,这里不再自动关闭弹窗
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,18 +66,42 @@ export default function AuthView() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+    <div className={`min-h-screen ${
+      isModal 
+        ? 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50' 
+        : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50'
+    } flex items-center justify-center p-4`}>
       <div className="w-full max-w-md">
         {/* Logo 区域 */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            MemoCurve
-          </h1>
-          <p className="text-gray-600">基于艾宾浩斯记忆曲线的知识管理工具</p>
-        </div>
+        {!isModal && (
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              MemoCurve
+            </h1>
+            <p className="text-gray-600">基于艾宾浩斯记忆曲线的知识管理工具</p>
+          </div>
+        )}
 
         {/* 认证卡片 */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 relative">
+          {/* 弹窗模式下显示关闭按钮 */}
+          {isModal && onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* 弹窗模式下显示提示信息 */}
+          {isModal && (
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">AI 分析功能需要登录</h2>
+              <p className="text-sm text-gray-600">请登录后使用 AI 分析功能</p>
+            </div>
+          )}
+          
           {/* 切换按钮 */}
           <div className="flex gap-2 mb-6 p-1 bg-gray-100 rounded-lg">
             <button
@@ -235,10 +261,12 @@ export default function AuthView() {
         </div>
 
         {/* 安全说明 */}
-        <div className="mt-6 text-center text-xs text-gray-500">
-          <p>登录后您可以安全访问 AI 分析功能</p>
-          <p className="mt-1">数据仅存储在您的本地浏览器中</p>
-        </div>
+        {!isModal && (
+          <div className="mt-6 text-center text-xs text-gray-500">
+            <p>登录后您可以安全访问 AI 分析功能</p>
+            <p className="mt-1">数据仅存储在您的本地浏览器中</p>
+          </div>
+        )}
       </div>
     </div>
   );

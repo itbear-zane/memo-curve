@@ -95,6 +95,10 @@ export interface CurveProfile {
     setShowAnalytics: (show: boolean) => void;
     aiAnalysisNote: Note | null;
     setAIAnalysisNote: (note: Note | null) => void;
+    showAuthModal: boolean;
+    setShowAuthModal: (show: boolean) => void;
+    onAuthModalClose?: () => void;
+    setOnAuthModalClose: (callback: (() => void) | undefined) => void;
     
     // Actions
     saveNoteToDB: (note: Note) => Promise<void>;

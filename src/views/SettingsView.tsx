@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Save, HardDrive, Download, Upload, TrendingUp, Edit3, Eye, Trash2, Clock, Brain, RefreshCw, LogOut, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,8 +9,8 @@ import { CurveEditor, CurveVisualization } from '../components/CurveComponents';
 import { refreshProviderKey } from '../utils/aiKeyService';
 
 const SettingsView = () => {
-  const { settings, saveSettingsToDB, setView, showToast, handleExportData, handleImportData, requestNotificationPermission } = useApp();
-  const { user, signOut } = useAuth();
+  const { settings, saveSettingsToDB, setView, showToast, handleExportData, handleImportData, requestNotificationPermission, setShowAuthModal, setOnAuthModalClose } = useApp();
+  const { user, signOut, isAuthenticated } = useAuth();
   const [editedCurves, setEditedCurves] = useState<CurveProfile[]>(settings.curveProfiles);
   const [isDirty, setIsDirty] = useState(false);
   const [quota, setQuota] = useState<{ usage: number, quota: number } | null>(null);
@@ -19,6 +19,43 @@ const SettingsView = () => {
   const [viewingCurve, setViewingCurve] = useState<CurveProfile | null>(null);
   const [aiConfig, setAiConfig] = useState(settings.aiConfig);
   const [isRefreshingKey, setIsRefreshingKey] = useState(false);
+  const [pendingAIEnable, setPendingAIEnable] = useState(false); // 记录是否正在等待登录以启用 AI
+  const prevAuthStateRef = useRef<boolean | null>(null); // 跟踪之前的登录状态
+
+  // 当用户登录成功后,如果正在等待启用 AI,自动启用
+  useEffect(() => {
+    if (isAuthenticated && pendingAIEnable && !aiConfig.enabled) {
+      const newAiConfig = { ...aiConfig, enabled: true };
+      setAiConfig(newAiConfig);
+      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+      setPendingAIEnable(false);
+      showToast('AI 分析功能已启用');
+      // 清理回调
+      setOnAuthModalClose(undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, pendingAIEnable]);
+
+  // 当用户退出登录后,如果AI功能已启用,自动关闭
+  useEffect(() => {
+    // 只有当之前是已登录状态,现在变为未登录时,才触发关闭AI功能
+    if (prevAuthStateRef.current === true && !isAuthenticated && aiConfig.enabled) {
+      const newAiConfig = { ...aiConfig, enabled: false };
+      setAiConfig(newAiConfig);
+      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+      showToast('AI 分析功能已关闭', 'error');
+    }
+    // 更新之前的登录状态
+    prevAuthStateRef.current = isAuthenticated;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  // 清理回调，当组件卸载时
+  useEffect(() => {
+    return () => {
+      setOnAuthModalClose(undefined);
+    };
+  }, [setOnAuthModalClose]);
 
   // 获取当前提供商的配置
   const getCurrentProviderConfig = () => {
@@ -238,6 +275,22 @@ const SettingsView = () => {
               </div>
               <button
                 onClick={() => {
+                  // 检查是否已登录
+                  if (!isAuthenticated && !aiConfig.enabled) {
+                    // 未登录且当前未启用，显示登录弹窗
+                    setPendingAIEnable(true);
+                    // 设置关闭回调：用户关闭弹窗时取消待启用状态
+                    setOnAuthModalClose(() => () => {
+                      // 检查是否已登录,如果未登录则提示失败
+                      if (!isAuthenticated) {
+                        setPendingAIEnable(false);
+                        showToast('AI 功能启用失败，需要登录', 'error');
+                      }
+                    });
+                    setShowAuthModal(true);
+                    return;
+                  }
+                  
                   const newAiConfig = { ...aiConfig, enabled: !aiConfig.enabled };
                   setAiConfig(newAiConfig);
                   setIsDirty(true);
