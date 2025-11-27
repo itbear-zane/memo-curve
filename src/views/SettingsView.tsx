@@ -411,6 +411,7 @@ const SettingsView = () => {
                     >
                       <optgroup label="Qwen">
                         <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
+                        <option value="qwen/qwen3-vl-8b-thinking">qwen/qwen3-vl-8b-thinking</option>
                         <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
                         <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
                         <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
@@ -424,6 +425,8 @@ const SettingsView = () => {
                         <option value="openai/gpt-5-image-mini">openai/gpt-5-image-mini</option>
                       </optgroup>
                       <optgroup label="Google">
+                        <option value="google/gemini-3-pro-preview">google/gemini-3-pro-preview</option>
+                        <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>
                         <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
                         <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
                         <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
