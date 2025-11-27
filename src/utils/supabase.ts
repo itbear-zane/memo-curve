@@ -21,7 +21,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // AI API 密钥配置接口
 export interface AIApiKeyConfig {
   id?: string;
-  provider: 'deepseek' | 'openai' | 'openrouter';
+  provider: 'deepseek' | 'openai' | 'openrouter' | 'dashscope';
   api_key: string;
   base_url: string;
   model: string;
@@ -68,7 +68,7 @@ export async function fetchAIApiKeys(): Promise<AIApiKeyConfig[]> {
  * 需要用户认证才能访问
  */
 export async function fetchAIApiKeyByProvider(
-  provider: 'deepseek' | 'openai' | 'openrouter'
+  provider: 'deepseek' | 'openai' | 'openrouter' | 'dashscope'
 ): Promise<AIApiKeyConfig | null> {
   try {
     // 检查用户是否已认证

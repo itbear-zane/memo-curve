@@ -311,7 +311,7 @@ const SettingsView = () => {
                   <select
                     value={aiConfig.provider}
                     onChange={(e) => {
-                      const provider = e.target.value as 'deepseek' | 'openai' | 'openrouter';
+                      const provider = e.target.value as 'deepseek' | 'openai' | 'openrouter' | 'dashscope';
                       const newAiConfig = { ...aiConfig, provider };
                       setAiConfig(newAiConfig);
                       setIsDirty(true);
@@ -323,6 +323,7 @@ const SettingsView = () => {
                     <option value="deepseek">DeepSeek</option>
                     <option value="openai">OpenAI</option>
                     <option value="openrouter">OpenRouter</option>
+                    <option value="dashscope">DashScope (阿里云)</option>
                   </select>
                 </div>
 
@@ -345,7 +346,7 @@ const SettingsView = () => {
                       // 立即保存设置
                       saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
                     }}
-                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : 'https://openrouter.ai/api/v1'}
+                    placeholder={aiConfig.provider === 'deepseek' ? 'https://api.deepseek.com' : aiConfig.provider === 'openai' ? 'https://api.openai.com' : aiConfig.provider === 'dashscope' ? 'https://dashscope.aliyuncs.com/compatible-mode/v1' : 'https://openrouter.ai/api/v1'}
                     className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                   />
                 </div>
@@ -391,76 +392,81 @@ const SettingsView = () => {
                 {/* 模型选择 */}
                 <div>
                   <label className="block text-sm text-gray-600 mb-2">模型</label>
-                  {aiConfig.provider === 'openrouter' ? (
-                    <select
-                      value={getCurrentProviderConfig().model}
-                      onChange={(e) => {
-                        const newAiConfig = {
-                          ...aiConfig,
-                          [aiConfig.provider]: {
-                            ...getCurrentProviderConfig(),
-                            model: e.target.value
-                          }
-                        };
-                        setAiConfig(newAiConfig);
-                        setIsDirty(true);
-                        // 立即保存设置
-                        saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
-                      }}
-                      className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    >
-                      <optgroup label="Qwen">
-                        <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
-                        <option value="qwen/qwen3-vl-8b-thinking">qwen/qwen3-vl-8b-thinking</option>
-                        <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
-                        <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
-                        <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
-                        <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
-                      </optgroup>
-                      <optgroup label="OpenAI">
-                        <option value="openai/gpt-5-mini">openai/gpt-5-mini</option>
-                        <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
-                        <option value="openai/gpt-5.1">openai/gpt-5.1</option>
-                        <option value="openai/gpt-5.1-chat">openai/gpt-5.1-chat</option>
-                        <option value="openai/gpt-5-image-mini">openai/gpt-5-image-mini</option>
-                      </optgroup>
-                      <optgroup label="Google">
-                        <option value="google/gemini-3-pro-preview">google/gemini-3-pro-preview</option>
-                        <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>
-                        <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
-                        <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
-                        <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
-                      </optgroup>
-                      <optgroup label="Grok">
-                        <option value="x-ai/grok-4.1-fast:free">x-ai/grok-4.1-fast:free</option>
-                        <option value="x-ai/grok-4.1-fast">x-ai/grok-4.1-fast</option>
-                      </optgroup>
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={getCurrentProviderConfig().model}
-                      onChange={(e) => {
-                        const newAiConfig = {
-                          ...aiConfig,
-                          [aiConfig.provider]: {
-                            ...getCurrentProviderConfig(),
-                            model: e.target.value
-                          }
-                        };
-                        setAiConfig(newAiConfig);
-                        setIsDirty(true);
-                        // 立即保存设置
-                        saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
-                      }}
-                      placeholder={aiConfig.provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'}
-                      className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    />
-                  )}
+                  <select
+                    value={getCurrentProviderConfig().model}
+                    onChange={(e) => {
+                      const newAiConfig = {
+                        ...aiConfig,
+                        [aiConfig.provider]: {
+                          ...getCurrentProviderConfig(),
+                          model: e.target.value
+                        }
+                      };
+                      setAiConfig(newAiConfig);
+                      setIsDirty(true);
+                      // 立即保存设置
+                      saveSettingsToDB({ ...settings, curveProfiles: editedCurves, aiConfig: newAiConfig });
+                    }}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    {aiConfig.provider === 'deepseek' && (
+                      <>
+                        <option value="deepseek-chat">deepseek-chat</option>
+                        <option value="deepseek-reasoner">deepseek-reasoner</option>
+                      </>
+                    )}
+                    {aiConfig.provider === 'openai' && (
+                      <>
+                        <option value="gpt-4o">gpt-4o</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini</option>
+                        <option value="gpt-4-turbo">gpt-4-turbo</option>
+                        <option value="gpt-4">gpt-4</option>
+                        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                      </>
+                    )}
+                    {aiConfig.provider === 'dashscope' && (
+                      <>
+                        <option value="qwen3-vl-plus">qwen3-vl-plus</option>
+                        <option value="qwen3-max">qwen3-max</option>
+                        <option value="qwen3-vl-flash">qwen3-vl-flash</option>
+                        <option value="qwen3-vl-30b-a3b-thinking">qwen3-vl-30b-a3b-thinking</option>
+                        <option value="qwen-vl-max">qwen-vl-max</option>
+                        <option value="qwen-vl-plus">qwen-vl-plus</option>
+                      </>
+                    )}
+                    {aiConfig.provider === 'openrouter' && (
+                      <>
+                        <optgroup label="Qwen">
+                          <option value="qwen/qwen3-vl-235b-a22b-instruct">qwen/qwen3-vl-235b-a22b-instruct</option>
+                          <option value="qwen/qwen3-vl-8b-thinking">qwen/qwen3-vl-8b-thinking</option>
+                          <option value="qwen/qwen3-vl-8b-instruct">qwen/qwen3-vl-8b-instruct</option>
+                          <option value="qwen/qwen2.5-vl-32b-instruct:free">qwen/qwen2.5-vl-32b-instruct:free</option>
+                          <option value="qwen/qwen2.5-vl-32b-instruct">qwen/qwen2.5-vl-32b-instruct</option>
+                          <option value="qwen/qwen2.5-vl-72b-instruct">qwen/qwen2.5-vl-72b-instruct</option>
+                        </optgroup>
+                        <optgroup label="OpenAI">
+                          <option value="openai/gpt-5-mini">openai/gpt-5-mini</option>
+                          <option value="openai/gpt-5-nano">openai/gpt-5-nano</option>
+                          <option value="openai/gpt-5.1">openai/gpt-5.1</option>
+                          <option value="openai/gpt-5.1-chat">openai/gpt-5.1-chat</option>
+                          <option value="openai/gpt-5-image-mini">openai/gpt-5-image-mini</option>
+                        </optgroup>
+                        <optgroup label="Google">
+                          <option value="google/gemini-3-pro-preview">google/gemini-3-pro-preview</option>
+                          <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>
+                          <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
+                          <option value="google/gemma-3-27b-it:free">google/gemma-3-27b-it:free</option>
+                          <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
+                        </optgroup>
+                        <optgroup label="Grok">
+                          <option value="x-ai/grok-4.1-fast:free">x-ai/grok-4.1-fast:free</option>
+                          <option value="x-ai/grok-4.1-fast">x-ai/grok-4.1-fast</option>
+                        </optgroup>
+                      </>
+                    )}
+                  </select>
                   <p className="text-xs text-gray-400 mt-1">
-                    {aiConfig.provider === 'deepseek' && '推荐:deepseek-chat, deepseek-reasoner'}
-                    {aiConfig.provider === 'openai' && '推荐:gpt-4o, gpt-4o-mini'}
-                    {aiConfig.provider === 'openrouter' && '从下拉列表中选择模型'}
+                    从下拉列表中选择模型
                   </p>
                 </div>
 

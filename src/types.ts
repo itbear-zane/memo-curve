@@ -62,7 +62,7 @@ export interface CurveProfile {
     curveProfiles: CurveProfile[];
     enableNotifications: boolean;
     aiConfig: {
-      provider: 'deepseek' | 'openai' | 'openrouter';
+      provider: 'deepseek' | 'openai' | 'openrouter' | 'dashscope';
       enabled: boolean;
       // 每个提供商独立的配置
       deepseek: {
@@ -81,6 +81,11 @@ export interface CurveProfile {
         model: string;
         siteUrl?: string;
         siteName?: string;
+      };
+      dashscope: {
+        baseURL: string;
+        apiKey: string;
+        model: string;
       };
     };
   }

@@ -35,6 +35,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         siteUrl: '',
         siteName: '',
       },
+      dashscope: {
+        baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiKey: '',
+        model: 'qwen3-vl-plus',
+      },
     },
   });
 
@@ -124,6 +129,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                     siteUrl: oldConfig.siteUrl || '',
                     siteName: oldConfig.siteName || '',
                   },
+                  dashscope: {
+                    baseURL: oldConfig.provider === 'dashscope' ? (oldConfig.baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1') : 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                    apiKey: oldConfig.provider === 'dashscope' ? (oldConfig.apiKey || '') : '',
+                    model: oldConfig.provider === 'dashscope' ? (oldConfig.model || 'qwen3-vl-plus') : 'qwen3-vl-plus',
+                  },
                 }
               };
               // 保存迁移后的配置
@@ -139,7 +149,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               // 如果从 Supabase 成功加载了密钥,使用更新后的配置
               if (updatedSettings.aiConfig.openrouter.apiKey || 
                   updatedSettings.aiConfig.deepseek.apiKey || 
-                  updatedSettings.aiConfig.openai.apiKey) {
+                  updatedSettings.aiConfig.openai.apiKey ||
+                  updatedSettings.aiConfig.dashscope.apiKey) {
                 migratedSettings = updatedSettings;
                 // 同时保存到本地数据库
                 await dbHelper.put(STORE_SETTINGS, updatedSettings, 'config');
